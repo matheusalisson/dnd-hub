@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Um painel em português para organizar campanhas, consultar o compêndio e conduzir sessões de Dungeons & Dragons."
+    />
+    <meta name="theme-color" content="#101116" />
+    <title>BanD&amp;D — Hub do Mestre</title>
+    <link rel="preconnect" href="https://www.dnd5eapi.co" />
+    <link rel="stylesheet" href="./assets/css/styles.css" />
+    <script src="./assets/js/app.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Navegação principal">
+        <a class="brand" href="#dashboard" data-go="dashboard" aria-label="BanD&amp;D, início">
+          <span class="brand-mark" aria-hidden="true">✦</span>
+          <span class="brand-name">BanD&amp;D<span>.</span></span>
+        </a>
+
+        <div class="sidebar-label">MESTRE</div>
+        <nav class="primary-nav">
+          <button class="nav-item is-active" data-view="dashboard" type="button">
+            <span class="nav-icon" aria-hidden="true">⌂</span> Visão geral
+          </button>
+          <button class="nav-item" data-view="campaigns" type="button">
+            <span class="nav-icon" aria-hidden="true">▤</span> Campanhas
+            <span class="nav-count" id="campaign-count">0</span>
+          </button>
+          <button class="nav-item" data-view="initiative" type="button">
+            <span class="nav-icon" aria-hidden="true">⚔</span> Iniciativa
+          </button>
+          <button class="nav-item" data-view="notes" type="button">
+            <span class="nav-icon" aria-hidden="true">✎</span> Anotações
+          </button>
+        </nav>
+
+        <div class="sidebar-label library-label">BIBLIOTECA</div>
+        <nav class="primary-nav">
+          <button class="nav-item" data-view="spells" type="button">
+            <span class="nav-icon" aria-hidden="true">✧</span> Magias
+          </button>
+          <button class="nav-item" data-view="tricks" type="button">
+            <span class="nav-icon" aria-hidden="true">✦</span> Truques
+          </button>
+          <button class="nav-item" data-view="monsters" type="button">
+            <span class="nav-icon" aria-hidden="true">♟</span> Criaturas
+          </button>
+          <button class="nav-item" data-view="rules" type="button">
+            <span class="nav-icon" aria-hidden="true">§</span> Regras
+          </button>
+        </nav>
+
+        <div class="sidebar-bottom">
+          <div class="sidebar-tip">
+            <span class="tip-star" aria-hidden="true">✦</span>
+            <p>Uma boa história merece um bom lugar para acontecer.</p>
+            <span class="tip-credit">SEU PRÓXIMO CAPÍTULO COMEÇA AQUI</span>
+          </div>
+          <div class="profile">
+            <div class="avatar">M</div>
+            <div class="profile-copy">
+              <strong>Mestre</strong>
+              <span>Plano gratuito</span>
+            </div>
+            <button class="icon-button profile-menu" type="button" aria-label="Opções do perfil">···</button>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main-area">
+        <header class="topbar">
+          <div class="breadcrumbs"><span>BanD&amp;D</span><span class="crumb-divider">/</span><strong id="breadcrumb-current">Visão geral</strong></div>
+          <div class="topbar-actions">
+            <label class="global-search">
+              <span aria-hidden="true">⌕</span>
+              <input id="global-search" type="search" placeholder="Buscar magia no compêndio..." aria-label="Buscar magia no compêndio" />
+              <kbd>/</kbd>
+            </label>
+            <button class="icon-button notification-button" type="button" aria-label="Notificações">
+              ♧<span class="notification-dot"></span>
+            </button>
+            <div class="topbar-avatar" aria-hidden="true">M</div>
+          </div>
+        </header>
+
+        <div class="content-wrap">
+          <section class="view is-visible" id="view-dashboard" data-title="Visão geral">
+            <div class="welcome-row">
+              <div>
+                <p class="eyebrow"><span class="eyebrow-line"></span> <span id="today-label"></span></p>
+                <h1>Que bom ter você de volta, Mestre <span class="wave">✦</span></h1>
+                <p class="page-subtitle">Sua próxima grande aventura começa com um bom planejamento.</p>
+              </div>
+              <button class="button button-primary" data-go="campaigns" type="button"><span aria-hidden="true">＋</span> Nova campanha</button>
+            </div>
+
+            <article class="campaign-banner" id="dashboard-campaign-banner">
+              <div class="banner-art" id="dashboard-banner-art" aria-hidden="true">
+                <div class="moon"></div><div class="mountain mountain-back"></div><div class="mountain mountain-front"></div>
+                <div class="banner-sigil">✧</div>
+              </div>
+              <div class="banner-content">
+                <div class="banner-kicker"><span class="status-dot"></span> CAMPANHA EM DESTAQUE</div>
+                <h2 id="dashboard-campaign-name">Nenhuma campanha aberta</h2>
+                <p id="dashboard-campaign-description">Abra uma campanha para acompanhar seus detalhes aqui.</p>
+                <div class="banner-meta" id="dashboard-campaign-meta"><span>◷ &nbsp;Sua campanha ativa</span></div>
+              </div>
+              <button class="button button-light" id="dashboard-open-campaign" data-open-active-campaign type="button">Abrir campanha <span aria-hidden="true">↗</span></button>
+            </article>
+
+            <div class="section-heading">
+              <div><h2>Seu espaço de mestre</h2><p>O essencial para preparar e conduzir suas sessões.</p></div>
+              <span class="subtle-label">ACESSO RÁPIDO</span>
+            </div>
+            <div class="tool-grid">
+              <button class="tool-card" data-go="initiative" type="button">
+                <span class="tool-icon icon-initiative">⚔</span><span class="tool-arrow">↗</span>
+                <strong>Ordem de iniciativa</strong><span>Organize o combate sem perder o ritmo.</span>
+                <span class="tool-link">Abrir ferramenta <b>→</b></span>
+              </button>
+              <button class="tool-card" data-go="spells" type="button">
+                <span class="tool-icon icon-spells">✧</span><span class="tool-arrow">↗</span>
+                <strong>Compêndio de magias</strong><span>Encontre a magia perfeita para cada cena.</span>
+                <span class="tool-link">Explorar magias <b>→</b></span>
+              </button>
+              <button class="tool-card" data-go="monsters" type="button">
+                <span class="tool-icon icon-monsters">♟</span><span class="tool-arrow">↗</span>
+                <strong>Bestiário</strong><span>Descubra o próximo desafio do grupo.</span>
+                <span class="tool-link">Ver criaturas <b>→</b></span>
+              </button>
+              <button class="tool-card" data-go="notes" type="button">
+                <span class="tool-icon icon-notes">✎</span><span class="tool-arrow">↗</span>
+                <strong>Notas da aventura</strong><span>Guarde ideias antes que elas escapem.</span>
+                <span class="tool-link">Escrever nota <b>→</b></span>
+              </button>
+            </div>
+
+            <div class="dashboard-bottom">
+              <section class="panel next-session">
+                <div class="panel-heading"><div><span class="mini-icon">◷</span><h2>Campanha ativa</h2></div><button class="text-button" data-open-active-campaign type="button">Abrir campanha <span>→</span></button></div>
+                <div class="session-date dashboard-active-campaign"><div class="date-block"><span>ATIVA</span><strong>✦</strong></div><div><strong id="dashboard-active-name">Nenhuma campanha aberta</strong><span id="dashboard-active-description">Abra ou crie uma campanha para começar.</span></div></div>
+              </section>
+              <section class="panel recent-activity">
+                <div class="panel-heading"><div><span class="mini-icon">↻</span><h2>Continue de onde parou</h2></div></div>
+                <button class="activity-item" data-open-active-campaign type="button"><span class="activity-icon">▤</span><span><strong id="dashboard-activity-name">Nenhuma campanha aberta</strong><small id="dashboard-activity-description">Escolha uma campanha para continuar.</small></span><span class="activity-arrow">→</span></button>
+                <button class="activity-item" data-go="spells" type="button"><span class="activity-icon activity-purple">✧</span><span><strong>Compêndio de magias</strong><small>Explore as magias de D&D 5e</small></span><span class="activity-arrow">→</span></button>
+              </section>
+            </div>
+            <footer class="page-footer">Feito para criar histórias que ficam. <span>✦</span></footer>
+          </section>
+
+          <section class="view" id="view-campaigns" data-title="Campanhas" hidden>
+            <div class="page-heading-row">
+              <div><p class="eyebrow"><span class="eyebrow-line"></span> SEU UNIVERSO</p><h1>Campanhas</h1><p class="page-subtitle">Cada grande aventura começa com uma ideia.</p></div>
+              <button class="button button-primary" id="new-campaign" type="button"><span>＋</span> Nova campanha</button>
+            </div>
+              <div class="campaign-list" id="campaign-list">
+                <button class="new-campaign-card" id="new-campaign-card" type="button"><span>＋</span><strong>Comece uma nova história</strong><small>Crie um espaço para sua próxima campanha.</small></button>
+              </div>
+            <p class="api-note">As campanhas criadas nesta versão inicial ficam salvas neste navegador.</p>
+          </section>
+
+          <section class="view" id="view-spells" data-title="Magias" hidden>
+            <div class="page-heading-row library-heading">
+              <div><p class="eyebrow"><span class="eyebrow-line"></span> COMPÊNDIO 5E · 2014</p><h1>Magias</h1><p class="page-subtitle">Uma palavra pode mudar o destino de uma batalha.</p></div>
+              <span class="api-badge"><span></span> API D&D 5e conectada</span>
+            </div>
+            <div class="catalog-toolbar">
+              <label class="catalog-search"><span aria-hidden="true">⌕</span><input id="spell-search" type="search" aria-label="Buscar magia em português ou inglês" placeholder="Buscar magia em português ou inglês..." /><kbd>⌕</kbd></label>
+              <label class="filter-select"><span>Círculo</span><select id="spell-level"><option value="">Todos os círculos</option><option value="0">Truque</option><option value="1">1º círculo</option><option value="2">2º círculo</option><option value="3">3º círculo</option><option value="4">4º círculo</option><option value="5">5º círculo</option><option value="6">6º círculo</option><option value="7">7º círculo</option><option value="8">8º círculo</option><option value="9">9º círculo</option></select></label>
+            </div>
+            <div class="catalog-caption"><span id="spell-count">Carregando magias...</span><span>D&D 5e API · SRD 2014; livros completos não incluídos</span></div>
+            <div class="resource-grid" id="spell-list" aria-live="polite"></div>
+            <div class="catalog-feedback" id="spell-feedback" role="status"></div>
+            <button class="button button-outline load-more" id="spell-more" type="button" hidden>Carregar mais magias</button>
+          </section>
+
+          <section class="view" id="view-tricks" data-title="Truques" hidden>
+            <div class="page-heading-row library-heading">
+              <div><p class="eyebrow"><span class="eyebrow-line"></span> COMPÊNDIO 5E · 2014</p><h1>Truques</h1><p class="page-subtitle">Magias simples, mas capazes de mudar o rumo de uma aventura.</p></div>
+              <span class="api-badge"><span></span> API D&D 5e conectada</span>
+            </div>
+            <div class="catalog-toolbar">
+              <label class="catalog-search"><span aria-hidden="true">⌕</span><input id="trick-search" type="search" aria-label="Buscar truque em português ou inglês" placeholder="Buscar truque em português ou inglês..." /><kbd>⌕</kbd></label>
+            </div>
+            <div class="catalog-caption"><span id="trick-count">Carregando truques...</span><span>D&D 5e API · SRD 2014; livros completos não incluídos</span></div>
+            <div class="resource-grid" id="trick-list" aria-live="polite"></div>
+            <div class="catalog-feedback" id="trick-feedback" role="status"></div>
+            <button class="button button-outline load-more" id="trick-more" type="button" hidden>Carregar mais truques</button>
+          </section>
+
+          <section class="view" id="view-monsters" data-title="Criaturas" hidden>
+            <div class="page-heading-row library-heading">
+              <div><p class="eyebrow"><span class="eyebrow-line"></span> COMPÊNDIO 5E · 2014</p><h1>Bestiário</h1><p class="page-subtitle">Toda lenda precisa de um desafio à altura.</p></div>
+              <span class="api-badge"><span></span> API D&D 5e conectada</span>
+            </div>
+            <div class="catalog-toolbar">
+              <label class="catalog-search"><span aria-hidden="true">⌕</span><input id="monster-search" type="search" aria-label="Buscar criatura em português ou inglês" placeholder="Buscar criatura em português ou inglês..." /><kbd>⌕</kbd></label>
+              <label class="filter-select"><span>Fonte</span><select id="monster-source"><option value="dnd5e">D&D 5e 2014 · SRD</option><option value="open5e">Open5e · fontes abertas</option></select></label>
+              <label class="filter-select" id="monster-document-filter" hidden><span>Publicação</span><select id="monster-document"><option value="">Todas as fontes abertas</option></select></label>
+            </div>
+            <div class="catalog-caption"><span id="monster-count">Carregando criaturas...</span><span id="monster-source-label">Fonte: D&D 5e API · regras de 2014</span></div>
+            <div class="resource-grid" id="monster-list" aria-live="polite"></div>
+            <div class="catalog-feedback" id="monster-feedback" role="status"></div>
+            <button class="button button-outline load-more" id="monster-more" type="button" hidden>Carregar mais criaturas</button>
+            <p class="api-note">O Open5e agrega conteúdo sob licenças abertas de várias fontes (incluindo material de terceiros); não representa o catálogo completo dos livros oficiais de aventuras. Consulte a fonte/licença exibida em cada ficha.</p>
+          </section>
+
+          <section class="view" id="view-rules" data-title="Regras" hidden>
+            <div class="page-heading-row">
+              <div><p class="eyebrow"><span class="eyebrow-line"></span> REFERÊNCIA RÁPIDA · 5E 2014</p><h1>Regras de mesa</h1><p class="page-subtitle">Resumos para encontrar uma regra durante a sessão sem interromper a aventura.</p></div>
+              <span class="api-badge"><span></span> Consulta rápida</span>
+            </div>
+            <div class="catalog-toolbar">
+              <label class="catalog-search"><span aria-hidden="true">⌕</span><input id="rules-search" type="search" aria-label="Buscar regra em português" placeholder="Buscar regra: vantagem, concentração, descanso..." /><kbd>⌕</kbd></label>
+              <label class="filter-select"><span>Categoria</span><select id="rules-category"><option value="">Todas as categorias</option><option value="testes">Testes</option><option value="combate">Combate</option><option value="magia">Magia</option><option value="exploracao">Exploração</option></select></label>
+            </div>
+            <div class="catalog-caption"><span id="rules-count">Regras de referência</span><span>Resumos próprios baseados nas regras básicas de 2014</span></div>
+            <div class="rules-grid" id="rules-list"></div>
+            <div class="catalog-feedback" id="rules-feedback" role="status"></div>
+          </section>
+
+          <section class="view" id="view-initiative" data-title="Iniciativa" hidden>
+            <div class="page-heading-row">
+              <div><p class="eyebrow"><span class="eyebrow-line"></span> FERRAMENTAS DE MESA</p><h1>Ordem de iniciativa</h1><p class="page-subtitle">Combate organizado, aventura em movimento.</p></div>
+              <button class="button button-outline" id="reset-initiative" type="button">↻ Reiniciar rodada</button>
+            </div>
+            <section class="panel initiative-panel">
+              <div class="quick-spell-search">
+                <label class="quick-spell-label" for="initiative-spell-search">Consulta rápida de magias e truques</label>
+                <div class="spell-input-wrap">
+                  <span class="search-icon">✧</span>
+                  <input id="initiative-spell-search" type="search" placeholder="Pesquise em português ou inglês..." autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="initiative-spell-suggestions" aria-expanded="false" />
+                  <kbd>⌕</kbd>
+                  <div class="spell-suggestions" id="initiative-spell-suggestions" role="listbox" hidden></div>
+                </div>
+                <small class="quick-spell-status" id="initiative-spell-status" role="status">Digite pelo menos 2 letras. Selecione um resultado para abrir a ficha.</small>
+              </div>
+              <div class="initiative-topline"><div><span class="round-label">RODADA</span><strong id="round-number">01</strong></div><button class="button button-primary" id="next-turn" type="button">Próximo turno <span>→</span></button></div>
+              <form class="initiative-form" id="initiative-form">
+                <div class="creature-search-field"><label for="combatant-name">Personagem ou criatura</label><div class="creature-input-wrap"><input id="combatant-name" name="name" placeholder="Busque em português ou inglês..." required maxlength="48" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="creature-suggestions" aria-expanded="false" /><button class="monster-image-button" id="selected-creature-image" type="button" data-image-preview hidden>▧</button></div><div class="creature-suggestions" id="creature-suggestions" role="listbox" hidden></div><small class="input-hint" id="creature-search-status" role="status">Digite para buscar criaturas do SRD 2014 e Open5e.</small></div>
+                <div class="initiative-score-field"><label for="combatant-score">Iniciativa</label><div class="initiative-score-control"><input id="combatant-score" name="score" type="number" placeholder="12" required min="-10" max="99" /><button class="icon-button initiative-roll" id="roll-initiative" type="button" aria-label="Rolar iniciativa com d20 e modificador de Destreza" title="Rolar iniciativa (d20 + modificador de Destreza)">🎲</button></div></div>
+                <label class="initiative-number"><span>PV atuais</span><input id="combatant-hp" name="hp" type="number" placeholder="—" min="0" max="9999" /></label>
+                <label class="initiative-number"><span>CA</span><input id="combatant-ac" name="ac" type="number" placeholder="—" min="0" max="99" /></label>
+                <button class="button button-primary add-combatant" type="submit">＋ Adicionar</button>
+              </form>
+              <p class="api-note">Escolha uma criatura do SRD 2014 ou de fontes abertas Open5e para preencher os dados. Passe o mouse ou foque o nome na iniciativa para consultar a ficha. As APIs não incluem necessariamente os monstros de publicações comerciais.</p>
+              <div class="initiative-list" id="initiative-list"></div>
+              <div class="initiative-empty" id="initiative-empty"><span>⚔</span><strong>A arena está em silêncio.</strong><p>Adicione combatentes para começar a organizar a iniciativa.</p></div>
+            </section>
+            <p class="api-note">A ordem de combate é salva localmente neste navegador.</p>
+          </section>
+
+          <section class="view" id="view-notes" data-title="Anotações" hidden>
+            <div class="page-heading-row">
+              <div><p class="eyebrow"><span class="eyebrow-line"></span> IDEIAS QUE VALEM OURO</p><h1>Anotações</h1><p class="page-subtitle">Registre os detalhes que farão sua história inesquecível.</p></div>
+            </div>
+            <section class="panel notes-panel">
+              <label class="notes-title-label" for="notes-title">Título da anotação</label>
+              <input id="notes-title" class="notes-title" maxlength="100" placeholder="Ex.: O segredo da estalajadeira" />
+              <label class="notes-title-label" for="notes-content">Sua anotação</label>
+              <textarea id="notes-content" rows="9" placeholder="Personagens, pistas, reviravoltas... anote aqui antes que a inspiração fuja."></textarea>
+              <div class="notes-footer"><span id="notes-status">Salvo neste navegador</span><button class="button button-primary" id="save-note" type="button">Salvar anotação</button></div>
+            </section>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <dialog class="detail-dialog" id="detail-dialog" aria-labelledby="detail-title">
+      <button class="dialog-close icon-button" type="button" aria-label="Fechar">×</button>
+      <div class="dialog-kicker" id="detail-kicker"></div>
+      <div class="detail-title-row"><h2 id="detail-title"></h2><button class="monster-image-button detail-image-button" id="detail-image-button" type="button" data-image-preview hidden>▧</button></div>
+      <div class="detail-chips" id="detail-chips"></div>
+      <div class="detail-body" id="detail-body"></div>
+      <p class="dialog-source">Dados de referência da API D&D 5e · 2014</p>
+    </dialog>
+    <dialog class="image-preview-dialog" id="monster-image-dialog" aria-label="Imagem ampliada da criatura">
+      <button class="dialog-close icon-button" id="monster-image-close" type="button" aria-label="Fechar imagem">×</button>
+      <img id="monster-image-preview" alt="" />
+      <p id="monster-image-status" role="status"></p>
+    </dialog>
+    <dialog class="detail-dialog campaign-dialog" id="campaign-editor" aria-labelledby="campaign-editor-title">
+      <button class="dialog-close icon-button campaign-dialog-close" id="campaign-editor-close" type="button" aria-label="Fechar">×</button>
+      <div class="dialog-kicker">SEU UNIVERSO</div>
+      <h2 id="campaign-editor-title">Nova campanha</h2>
+      <form id="campaign-editor-form">
+        <label class="campaign-form-field" for="campaign-name">Nome da campanha<input id="campaign-name" name="name" maxlength="80" required /></label>
+        <label class="campaign-form-field" for="campaign-description">Descrição<textarea id="campaign-description" name="description" rows="3" maxlength="500" placeholder="Uma antiga profecia desperta sob as montanhas..."></textarea></label>
+        <label class="campaign-form-field" for="campaign-background">Plano de fundo
+          <select id="campaign-background" name="background">
+            <option value="mountains">Montanhas ao entardecer</option>
+            <option value="forest">Floresta arcana</option>
+            <option value="ruins">Ruínas antigas</option>
+            <option value="night">Noite estrelada</option>
+            <option value="custom">Usar imagem por URL</option>
+          </select>
+        </label>
+        <label class="campaign-form-field" id="campaign-image-field" for="campaign-image-url" hidden>URL da imagem (HTTPS)
+          <input id="campaign-image-url" name="imageUrl" type="url" placeholder="https://exemplo.com/imagem.jpg" />
+        </label>
+        <div class="campaign-editor-actions"><button class="campaign-delete" id="delete-editing-campaign" type="button" hidden>Excluir campanha</button><span></span><button class="button button-outline" id="cancel-campaign-edit" type="button">Cancelar</button><button class="button button-primary" type="submit">Salvar campanha</button></div>
+      </form>
+    </dialog>
+    <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+  </body>
+</html>

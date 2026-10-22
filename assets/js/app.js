@@ -1,0 +1,2217 @@
+const API_BASE = "https://www.dnd5eapi.co/api/2014";
+const OPEN5E_BASE = "https://api.open5e.com/v1";
+const PAGE_SIZE = 18;
+const DEFAULT_CAMPAIGN = {
+  id: "eldoria",
+  name: "As Cinzas de Eldoria",
+  description: "Uma antiga profecia desperta sob as montanhas de Vhal’Tor.",
+  background: "mountains",
+  imageUrl: "",
+};
+
+const state = {
+  spells: { results: [], visibleCount: PAGE_SIZE, query: "", level: "", requestId: 0 },
+  tricks: { catalog: null, results: [], visibleCount: PAGE_SIZE, query: "", requestId: 0 },
+  monsters: { results: [], visibleCount: PAGE_SIZE, query: "", provider: "dnd5e", documentSlug: "", documents: null, nameIndex: null, next: null, requestId: 0, imageCache: new Map() },
+  combatants: loadStored("cronica-combatants", []),
+  initiative: { creatures: [], selectedMonster: null, requestId: 0 },
+  campaigns: loadCampaigns(),
+  activeCampaignId: localStorage.getItem("cronica-active-campaign"),
+  editingCampaignId: null,
+  round: Number(localStorage.getItem("cronica-round")) || 1,
+  currentCombatantId: localStorage.getItem("cronica-current-combatant") || null,
+  note: loadStored("cronica-note", { title: "", content: "" }),
+  initiativeSpells: { catalog: null, trickNames: null, results: [], requestId: 0 },
+};
+
+const spellTranslations = {
+  "acid arrow": ["flecha ácida"],
+  "acid splash": ["respingo ácido"],
+  "aid": ["ajuda"],
+  "animal friendship": ["amizade animal"],
+  "armor of agathys": ["armadura de agathys"],
+  "arms of hadar": ["braços de hadar"],
+  "bane": ["perdição"],
+  "banishment": ["banimento"],
+  "barkskin": ["pele de árvore"],
+  "beacon of hope": ["sinal de esperança"],
+  "bless": ["bênção"],
+  "burning hands": ["mãos flamejantes"],
+  "charm person": ["enfeitiçar pessoa"],
+  "chill touch": ["toque arrepiante"],
+  "chromatic orb": ["orbe cromática"],
+  "cure wounds": ["curar ferimentos"],
+  "counterspell": ["contramágica"],
+  "darkness": ["escuridão"],
+  "dancing lights": ["luzes dançantes"],
+  "daylight": ["luz do dia"],
+  "detect magic": ["detectar magia"],
+  "dispel magic": ["dissipar magia"],
+  "druidcraft": ["druidismo"],
+  "eldritch blast": ["rajada mística"],
+  "faerie fire": ["fogo das fadas"],
+  "fear": ["medo"],
+  "feather fall": ["queda suave"],
+  "fire bolt": ["raio de fogo"],
+  "fireball": ["bola de fogo"],
+  "fly": ["voo"],
+  "guiding bolt": ["raio guiador"],
+  "guidance": ["orientação"],
+  "healing word": ["palavra curativa"],
+  "hold person": ["imobilizar pessoa"],
+  "invisibility": ["invisibilidade"],
+  "light": ["luz"],
+  "lightning bolt": ["relâmpago"],
+  "lesser restoration": ["restauração menor"],
+  "mage armor": ["armadura arcana"],
+  "magic missile": ["mísseis mágicos", "míssil mágico"],
+  "mage hand": ["mão mágica"],
+  "mending": ["reparar"],
+  "message": ["mensagem"],
+  "minor illusion": ["ilusão menor"],
+  "misty step": ["passo nebuloso"],
+  "moonbeam": ["raio lunar"],
+  "pass without trace": ["passos sem pegadas"],
+  "poison spray": ["rajada venenosa"],
+  "polymorph": ["metamorfose"],
+  "prestidigitation": ["prestidigitação"],
+  "produce flame": ["produzir chamas"],
+  "ray of frost": ["raio de gelo"],
+  "resistance": ["resistência"],
+  "revivify": ["revivificar"],
+  "sacred flame": ["chama sagrada"],
+  "shield": ["escudo"],
+  "shocking grasp": ["toque chocante"],
+  "shillelagh": ["bordão mágico"],
+  "spiritual weapon": ["arma espiritual"],
+  "spirit guardians": ["guardiões espirituais"],
+  "spare the dying": ["poupar os moribundos"],
+  "speak with animals": ["falar com animais"],
+  "sleep": ["sono"],
+  "slow": ["lentidão"],
+  "thaumaturgy": ["taumaturgia"],
+  "thunderwave": ["onda trovejante"],
+  "true resurrection": ["ressurreição verdadeira"],
+  "true strike": ["ataque certeiro"],
+  "vicious mockery": ["escárnio vicioso"],
+  "wall of fire": ["muralha de fogo"],
+  "web": ["teia"],
+  "witch bolt": ["raio místico"],
+  "wrathful smite": ["golpe colérico"],
+};
+
+const trickDescriptions = {
+  "acid splash": [
+    "Você arremessa uma bolha de ácido. Escolha uma criatura dentro do alcance ou duas criaturas que estejam a até 1,5 metro uma da outra. O alvo deve ser bem-sucedido em um teste de resistência de Destreza ou sofre 1d6 de dano ácido.",
+    "O dano desta magia aumenta em 1d6 quando você alcança o 5º nível (2d6), o 11º nível (3d6) e o 17º nível (4d6).",
+  ],
+  "chill touch": [
+    "Você cria uma mão fantasmagórica e esquelética no espaço de uma criatura dentro do alcance. Faça um ataque mágico à distância contra ela, envolvendo-a no frio do túmulo. Se acertar, o alvo sofre 1d8 de dano necrótico e não pode recuperar pontos de vida até o início do seu próximo turno. Até lá, a mão permanece agarrada ao alvo.",
+    "Se você acertar um morto-vivo, ele também terá desvantagem nas jogadas de ataque contra você até o fim do seu próximo turno.",
+    "O dano desta magia aumenta em 1d8 quando você alcança o 5º nível (2d8), o 11º nível (3d8) e o 17º nível (4d8).",
+  ],
+  "dancing lights": [
+    "Você cria até quatro luzes do tamanho de tochas dentro do alcance, que podem parecer tochas, lanternas ou orbes brilhantes pairando no ar. Também pode combinar as quatro luzes em uma forma vagamente humanoide de tamanho Médio. Em qualquer forma, cada luz emite penumbra em um raio de 3 metros.",
+    "Como uma ação bônus no seu turno, você pode mover as luzes até 18 metros para um novo ponto dentro do alcance. Uma luz deve permanecer a até 6 metros de outra luz criada por esta magia; ela se apaga se ultrapassar o alcance da magia.",
+  ],
+  "druidcraft": [
+    "Ao sussurrar para os espíritos da natureza, você cria um dos efeitos a seguir dentro do alcance:",
+    "• Você cria um efeito sensorial minúsculo e inofensivo que prevê o clima no local onde está pelas próximas 24 horas. O efeito pode aparecer como um orbe dourado para indicar céu limpo, uma nuvem para chuva, flocos de neve para neve e assim por diante. Ele dura 1 rodada.",
+    "• Você faz uma flor desabrochar, uma vagem se abrir ou um botão de folha florescer instantaneamente.",
+    "• Você cria um efeito sensorial instantâneo e inofensivo, como folhas caindo, uma brisa, o som de um animal pequeno ou um leve cheiro de gambá. O efeito deve caber em um cubo de 1,5 metro.",
+    "• Você acende ou apaga instantaneamente uma vela, tocha ou pequena fogueira.",
+  ],
+  "eldritch blast": [
+    "Um raio de energia crepitante dispara em direção a uma criatura dentro do alcance. Faça um ataque mágico à distância contra o alvo. Se acertar, ele sofre 1d10 de dano energético.",
+    "A magia cria mais raios quando você alcança níveis superiores: dois raios no 5º nível, três no 11º nível e quatro no 17º nível. Você pode direcionar os raios ao mesmo alvo ou a alvos diferentes. Faça uma jogada de ataque separada para cada raio.",
+  ],
+  "fire bolt": [
+    "Você arremessa uma fagulha de fogo contra uma criatura ou objeto dentro do alcance. Faça um ataque mágico à distância contra o alvo. Se acertar, ele sofre 1d10 de dano ígneo. Um objeto inflamável atingido por esta magia incendeia-se se não estiver sendo vestido ou carregado.",
+    "O dano desta magia aumenta em 1d10 quando você alcança o 5º nível (2d10), o 11º nível (3d10) e o 17º nível (4d10).",
+  ],
+  "guidance": [
+    "Você toca uma criatura voluntária. Antes do fim da magia, o alvo pode rolar 1d4 e adicionar o resultado a um teste de atributo à sua escolha. Ele pode rolar o dado antes ou depois de fazer o teste. Então, a magia termina.",
+  ],
+  "light": [
+    "Você toca um objeto que não seja maior que 3 metros em qualquer dimensão. Até a magia terminar, o objeto emite luz plena em um raio de 6 metros e penumbra por mais 6 metros. Você pode escolher a cor da luz. Cobrir completamente o objeto com algo opaco bloqueia a luz. A magia termina se você a conjurar novamente ou encerrá-la usando uma ação.",
+    "Se o objeto escolhido estiver sendo vestido ou carregado por uma criatura hostil, ela deve ser bem-sucedida em um teste de resistência de Destreza para evitar a magia.",
+  ],
+  "mage hand": [
+    "Uma mão espectral e flutuante aparece em um ponto à sua escolha dentro do alcance. Ela dura até o fim da magia ou até você dispensá-la usando uma ação. A mão desaparece se ficar a mais de 9 metros de você ou se você conjurar esta magia novamente.",
+    "Você pode usar sua ação para controlar a mão. Ela pode manipular um objeto, abrir uma porta ou recipiente destrancado, guardar ou retirar um item de um recipiente aberto ou despejar o conteúdo de um frasco. A cada uso, você pode mover a mão até 9 metros.",
+    "A mão não pode atacar, ativar itens mágicos nem carregar mais de 4,5 quilos.",
+  ],
+  "mending": [
+    "Esta magia repara uma única quebra ou rasgo em um objeto que você tocar, como uma chave quebrada, uma capa rasgada ou um odre furado. Desde que a quebra ou o rasgo não tenha mais de 30 centímetros em qualquer dimensão, você o conserta sem deixar vestígios do dano.",
+    "A magia pode reparar fisicamente um item mágico ou construto, mas não restaura a magia desse objeto.",
+  ],
+  "message": [
+    "Você aponta o dedo para uma criatura dentro do alcance e sussurra uma mensagem. Somente o alvo ouve a mensagem e pode responder em um sussurro que apenas você consegue ouvir.",
+    "Você pode conjurar esta magia através de objetos sólidos se conhecer o alvo e souber que ele está além da barreira. Silêncio mágico, 30 centímetros de pedra, 2,5 centímetros de metal comum, uma fina folha de chumbo ou 90 centímetros de madeira bloqueiam a magia. Ela não precisa seguir uma linha reta e pode contornar esquinas e passar por aberturas.",
+  ],
+  "minor illusion": [
+    "Você cria um som ou a imagem de um objeto dentro do alcance, que dura até o fim da magia. A ilusão também termina se você a dispensar usando uma ação ou conjurar esta magia novamente.",
+    "Se criar um som, o volume pode variar de um sussurro a um grito. Pode ser sua voz, a voz de outra pessoa, o rugido de um leão, uma batida de tambores ou qualquer outro som que você escolher. O som continua sem parar durante toda a duração, ou você pode criar sons distintos em momentos diferentes antes do fim da magia.",
+    "Se criar a imagem de um objeto — como uma cadeira, pegadas na lama ou um pequeno baú —, ela não pode ser maior que um cubo de 1,5 metro. A imagem não pode produzir som, luz, cheiro nem qualquer outro efeito sensorial. A interação física revela que ela é uma ilusão, pois objetos atravessam sua imagem.",
+    "Se uma criatura usar sua ação para examinar o som ou a imagem, poderá determinar que é uma ilusão se for bem-sucedida em um teste de Inteligência (Investigação) contra a CD das suas magias. Se perceber a ilusão como tal, ela se torna tênue para essa criatura.",
+  ],
+  "poison spray": [
+    "Você estende a mão em direção a uma criatura que possa ver dentro do alcance e projeta da palma um sopro de gás nocivo. A criatura deve ser bem-sucedida em um teste de resistência de Constituição ou sofre 1d12 de dano venenoso.",
+    "O dano desta magia aumenta em 1d12 quando você alcança o 5º nível (2d12), o 11º nível (3d12) e o 17º nível (4d12).",
+  ],
+  "prestidigitation": [
+    "Esta magia é um pequeno truque mágico usado por conjuradores iniciantes para praticar. Você cria um dos seguintes efeitos mágicos dentro do alcance:",
+    "• Você cria um efeito sensorial instantâneo e inofensivo, como uma chuva de faíscas, uma brisa, notas musicais suaves ou um odor peculiar.",
+    "• Você acende ou apaga instantaneamente uma vela, tocha ou pequena fogueira.",
+    "• Você limpa ou suja instantaneamente um objeto que não seja maior que 28 litros.",
+    "• Você resfria, aquece ou dá sabor a até 28 litros de material inanimado por 1 hora.",
+    "• Você faz uma cor, pequena marca ou símbolo aparecer em um objeto ou superfície por 1 hora.",
+    "• Você cria uma bugiganga não mágica ou uma imagem ilusória que caiba na sua mão e dure até o fim do seu próximo turno.",
+    "Se conjurar esta magia várias vezes, pode manter até três de seus efeitos não instantâneos ativos ao mesmo tempo. Você pode dispensar esses efeitos usando uma ação.",
+  ],
+  "produce flame": [
+    "Uma chama bruxuleante aparece na sua mão. Ela permanece ali durante a magia e não causa dano a você nem ao seu equipamento. A chama emite luz plena em um raio de 3 metros e penumbra por mais 3 metros. A magia termina se você dispensar a chama usando uma ação ou conjurar esta magia novamente.",
+    "Você também pode atacar com a chama, mas isso encerra a magia. Ao conjurá-la ou usando uma ação em um turno posterior, você pode arremessar a chama contra uma criatura a até 9 metros de você. Faça um ataque mágico à distância. Se acertar, o alvo sofre 1d8 de dano ígneo.",
+    "O dano desta magia aumenta em 1d8 quando você alcança o 5º nível (2d8), o 11º nível (3d8) e o 17º nível (4d8).",
+  ],
+  "ray of frost": [
+    "Um raio gélido de luz azul-esbranquiçada dispara em direção a uma criatura dentro do alcance. Faça um ataque mágico à distância contra o alvo. Se acertar, ele sofre 1d8 de dano gélido e seu deslocamento é reduzido em 3 metros até o início do seu próximo turno.",
+    "O dano desta magia aumenta em 1d8 quando você alcança o 5º nível (2d8), o 11º nível (3d8) e o 17º nível (4d8).",
+  ],
+  "resistance": [
+    "Você toca uma criatura voluntária. Antes do fim da magia, o alvo pode rolar 1d4 e adicionar o resultado a um teste de resistência à sua escolha. Ele pode rolar o dado antes ou depois de fazer o teste. Então, a magia termina.",
+  ],
+  "sacred flame": [
+    "Uma radiância semelhante a uma chama desce sobre uma criatura que você possa ver dentro do alcance. O alvo deve ser bem-sucedido em um teste de resistência de Destreza ou sofre 1d8 de dano radiante. O alvo não recebe benefício de cobertura contra esse teste de resistência.",
+    "O dano desta magia aumenta em 1d8 quando você alcança o 5º nível (2d8), o 11º nível (3d8) e o 17º nível (4d8).",
+  ],
+  "shillelagh": [
+    "A madeira de uma clava ou bordão que você esteja segurando é imbuída do poder da natureza. Durante a magia, você pode usar seu atributo de conjuração em vez de Força nas jogadas de ataque e dano de ataques corpo a corpo com essa arma, e o dado de dano da arma passa a ser 1d8. A arma também se torna mágica, caso ainda não seja. A magia termina se você conjurá-la novamente ou soltar a arma.",
+  ],
+  "shocking grasp": [
+    "Um raio salta da sua mão para eletrocutar uma criatura que você tentar tocar. Faça um ataque mágico corpo a corpo contra o alvo. Você tem vantagem na jogada de ataque se o alvo estiver usando armadura de metal. Se acertar, ele sofre 1d8 de dano elétrico e não pode realizar reações até o início do próximo turno dele.",
+    "O dano desta magia aumenta em 1d8 quando você alcança o 5º nível (2d8), o 11º nível (3d8) e o 17º nível (4d8).",
+  ],
+  "spare the dying": [
+    "Você toca uma criatura viva que tenha 0 pontos de vida. Ela fica estável. Esta magia não tem efeito sobre mortos-vivos nem construtos.",
+  ],
+  "thaumaturgy": [
+    "Você manifesta uma pequena maravilha, um sinal de poder sobrenatural, dentro do alcance. Crie um dos seguintes efeitos mágicos:",
+    "• Sua voz fica até três vezes mais alta que o normal por 1 minuto.",
+    "• Você faz chamas tremeluzirem, ficarem mais brilhantes ou fracas, ou mudarem de cor por 1 minuto.",
+    "• Você provoca tremores inofensivos no chão por 1 minuto.",
+    "• Você cria um som instantâneo que se origina de um ponto à sua escolha dentro do alcance, como um trovão, o grasnado de um corvo ou sussurros sinistros.",
+    "• Você faz instantaneamente uma porta ou janela destrancada se abrir de repente ou bater.",
+    "• Você altera a aparência dos seus olhos por 1 minuto.",
+    "Se conjurar esta magia várias vezes, pode manter até três de seus efeitos de 1 minuto ativos ao mesmo tempo. Você pode dispensar esses efeitos usando uma ação.",
+  ],
+  "true strike": [
+    "Você estende a mão e aponta o dedo para um alvo dentro do alcance. Sua magia concede uma breve percepção das defesas dele. No seu próximo turno, você tem vantagem na sua primeira jogada de ataque contra esse alvo, desde que a magia ainda não tenha terminado.",
+  ],
+  "vicious mockery": [
+    "Você profere uma série de insultos imbuídos de encantamentos sutis contra uma criatura que possa ver dentro do alcance. Se o alvo puder ouvir você — mesmo que não compreenda o que diz —, deve ser bem-sucedido em um teste de resistência de Sabedoria ou sofre 1d4 de dano psíquico e tem desvantagem na próxima jogada de ataque que fizer antes do fim do próximo turno dele.",
+    "O dano desta magia aumenta em 1d4 quando você alcança o 5º nível (2d4), o 11º nível (3d4) e o 17º nível (4d4).",
+  ],
+};
+
+const trickMaterialTranslations = {
+  "dancing lights": "Um pouco de fósforo ou madeira de aveleira, ou um vaga-lume.",
+  light: "Um vaga-lume ou musgo fosforescente.",
+  mending: "Duas pedras-ímã.",
+  message: "Um pequeno pedaço de fio de cobre.",
+  "minor illusion": "Um pouco de lã.",
+  resistance: "Uma capa em miniatura.",
+  shillelagh: "Visco, uma folha de trevo e uma clava ou bordão.",
+};
+
+const monsterTranslations = {
+  "aboleth": ["abolete"],
+  "animated armor": ["armadura animada"],
+  "air elemental": ["elemental do ar"],
+  "ankheg": ["ankheg"],
+  "azer": ["azer"],
+  "balor": ["balor"],
+  "berserker": ["furioso"],
+  "bulette": ["bulette"],
+  "chuul": ["chuul"],
+  "couatl": ["couatl"],
+  "deva": ["deva"],
+  "dretch": ["dretch"],
+  "drider": ["drider"],
+  "duergar": ["duergar"],
+  "efreeti": ["ifrite"],
+  "erinyes": ["erinyes"],
+  "ettercap": ["ettercap"],
+  "ettin": ["ettin"],
+  "ghast": ["carniçal necrófago"],
+  "glabrezu": ["glabrezu"],
+  "gnoll": ["gnoll"],
+  "goblin": ["goblin"],
+  "grick": ["grick"],
+  "grimlock": ["grimlock"],
+  "hezrou": ["hezrou"],
+  "hobgoblin": ["hobgoblin"],
+  "kobold": ["kobold"],
+  "kraken": ["kraken"],
+  "lemure": ["lemure"],
+  "magmin": ["magmin"],
+  "marilith": ["marilith"],
+  "medusa": ["medusa"],
+  "merrow": ["merrow"],
+  "nalfeshnee": ["nalfeshnee"],
+  "oni": ["oni"],
+  "orc": ["orc"],
+  "otyugh": ["otyugh"],
+  "planetar": ["planetar"],
+  "pseudodragon": ["pseudodragão"],
+  "quasit": ["quasit"],
+  "quipper": ["quipper"],
+  "rakshasa": ["rakshasa"],
+  "remorhaz": ["remorhaz"],
+  "roc": ["roc"],
+  "roper": ["roper"],
+  "sahuagin": ["sahuagin"],
+  "solar": ["solar"],
+  "stirge": ["stirge"],
+  "tarrasque": ["tarrasque"],
+  "troll": ["troll"],
+  "vrock": ["vrock"],
+  "worg": ["worg"],
+  "xorn": ["xorn"],
+  "awakened shrub": ["arbusto desperto"],
+  "black bear": ["urso-negro"],
+  "clay golem": ["golem de argila"],
+  "cloud giant": ["gigante das nuvens"],
+  "frost giant": ["gigante do gelo"],
+  "giant ape": ["macaco gigante"],
+  "giant badger": ["texugo gigante"],
+  "giant bat": ["morcego gigante"],
+  "giant boar": ["javali gigante"],
+  "giant centipede": ["centopeia gigante"],
+  "giant constrictor snake": ["serpente constritora gigante"],
+  "giant crab": ["caranguejo gigante"],
+  "giant crocodile": ["crocodilo gigante"],
+  "giant eagle": ["águia gigante"],
+  "giant elk": ["alce gigante"],
+  "giant fire beetle": ["besouro-de-fogo gigante"],
+  "giant frog": ["sapo gigante"],
+  "giant goat": ["cabra gigante"],
+  "giant hyena": ["hiena gigante"],
+  "giant lizard": ["lagarto gigante"],
+  "giant octopus": ["polvo gigante"],
+  "giant owl": ["coruja gigante"],
+  "giant poisonous snake": ["serpente venenosa gigante"],
+  "giant rat": ["rato gigante"],
+  "giant rat (diseased)": ["rato gigante doente"],
+  "giant scorpion": ["escorpião gigante"],
+  "giant sea horse": ["cavalo-marinho gigante"],
+  "giant shark": ["tubarão gigante"],
+  "giant toad": ["sapo gigante"],
+  "giant vulture": ["abutre gigante"],
+  "giant wasp": ["vespa gigante"],
+  "giant weasel": ["doninha gigante"],
+  "gray ooze": ["gosma cinzenta"],
+  "iron golem": ["golem de ferro"],
+  "magma mephit": ["mefito de magma"],
+  "ochre jelly": ["gelatina ocre"],
+  "spirit naga": ["naga espiritual"],
+  "stone golem": ["golem de pedra"],
+  "storm giant": ["gigante da tempestade"],
+  "tribal warrior": ["guerreiro tribal"],
+  "water elemental": ["elemental da água"],
+  "earth elemental": ["elemental da terra"],
+  "fire elemental": ["elemental do fogo"],
+  "guardian naga": ["naga guardiã"],
+  "hill giant": ["gigante da colina"],
+  "half-red dragon veteran": ["veterano meio-dragão vermelho"],
+  "minotaur skeleton": ["esqueleto de minotauro"],
+  "ogre zombie": ["ogro zumbi"],
+  "rug of smothering": ["tapete sufocante"],
+  "saber-toothed tiger": ["tigre-dentes-de-sabre"],
+  "succubus/incubus": ["súcubo/íncubo"],
+  "swarm of bats": ["enxame de morcegos"],
+  "swarm of beetles": ["enxame de besouros"],
+  "swarm of centipedes": ["enxame de centopeias"],
+  "swarm of insects": ["enxame de insetos"],
+  "swarm of poisonous snakes": ["enxame de serpentes venenosas"],
+  "swarm of quippers": ["enxame de quippers"],
+  "swarm of rats": ["enxame de ratos"],
+  "swarm of ravens": ["enxame de corvos"],
+  "swarm of spiders": ["enxame de aranhas"],
+  "swarm of wasps": ["enxame de vespas"],
+  "tyrannosaurus rex": ["tiranossauro rex"],
+  "vampire, bat form": ["vampiro, forma de morcego"],
+  "vampire, mist form": ["vampiro, forma de névoa"],
+  "vampire, vampire form": ["vampiro, forma verdadeira"],
+  "werebear, bear form": ["urso-garou, forma de urso"],
+  "werebear, human form": ["urso-garou, forma humana"],
+  "werebear, hybrid form": ["urso-garou, forma híbrida"],
+  "wereboar, boar form": ["javali-garou, forma de javali"],
+  "wereboar, human form": ["javali-garou, forma humana"],
+  "wereboar, hybrid form": ["javali-garou, forma híbrida"],
+  "wererat, human form": ["rato-garou, forma humana"],
+  "wererat, hybrid form": ["rato-garou, forma híbrida"],
+  "wererat, rat form": ["rato-garou, forma de rato"],
+  "weretiger, human form": ["tigre-garou, forma humana"],
+  "weretiger, hybrid form": ["tigre-garou, forma híbrida"],
+  "weretiger, tiger form": ["tigre-garou, forma de tigre"],
+  "werewolf, human form": ["lobisomem, forma humana"],
+  "werewolf, hybrid form": ["lobisomem, forma híbrida"],
+  "werewolf, wolf form": ["lobisomem, forma de lobo"],
+  "will-o'-wisp": ["fátuo"],
+  "assassin": ["assassino"],
+  "arakocra": ["arakocra"],
+  "adult black dragon": ["dragão negro adulto"],
+  "adult blue dragon": ["dragão azul adulto"],
+  "adult brass dragon": ["dragão de latão adulto"],
+  "adult bronze dragon": ["dragão de bronze adulto"],
+  "adult copper dragon": ["dragão de cobre adulto"],
+  "adult gold dragon": ["dragão dourado adulto"],
+  "adult green dragon": ["dragão verde adulto"],
+  "adult red dragon": ["dragão vermelho adulto"],
+  "adult silver dragon": ["dragão prateado adulto"],
+  "adult white dragon": ["dragão branco adulto"],
+  "ancient black dragon": ["dragão negro ancião"],
+  "ancient blue dragon": ["dragão azul ancião"],
+  "ancient brass dragon": ["dragão de latão ancião"],
+  "ancient bronze dragon": ["dragão de bronze ancião"],
+  "ancient copper dragon": ["dragão de cobre ancião"],
+  "ancient gold dragon": ["dragão dourado ancião"],
+  "ancient green dragon": ["dragão verde ancião"],
+  "ancient red dragon": ["dragão vermelho ancião"],
+  "ancient silver dragon": ["dragão prateado ancião"],
+  "ancient white dragon": ["dragão branco ancião"],
+  "androsphinx": ["androesfinge"],
+  "axe beak": ["bico-de-machado"],
+  "deep gnome (svirfneblin)": ["gnomo das profundezas (svirfneblin)"],
+  "black dragon wyrmling": ["filhote de dragão negro"],
+  "blue dragon wyrmling": ["filhote de dragão azul"],
+  "brass dragon wyrmling": ["filhote de dragão de latão"],
+  "bronze dragon wyrmling": ["filhote de dragão de bronze"],
+  "copper dragon wyrmling": ["filhote de dragão de cobre"],
+  "gold dragon wyrmling": ["filhote de dragão dourado"],
+  "green dragon wyrmling": ["filhote de dragão verde"],
+  "red dragon wyrmling": ["filhote de dragão vermelho"],
+  "silver dragon wyrmling": ["filhote de dragão prateado"],
+  "white dragon wyrmling": ["filhote de dragão branco"],
+  "young black dragon": ["dragão negro jovem"],
+  "young blue dragon": ["dragão azul jovem"],
+  "young brass dragon": ["dragão de latão jovem"],
+  "young bronze dragon": ["dragão de bronze jovem"],
+  "young copper dragon": ["dragão de cobre jovem"],
+  "young gold dragon": ["dragão dourado jovem"],
+  "young green dragon": ["dragão verde jovem"],
+  "young red dragon": ["dragão vermelho jovem"],
+  "young silver dragon": ["dragão prateado jovem"],
+  "young white dragon": ["dragão branco jovem"],
+  "awakened tree": ["árvore desperta"],
+  "banshee": ["banshee"],
+  "barghest": ["barghest"],
+  "basilisk": ["basilisco"],
+  "bandit captain": ["capitão dos bandidos", "capitão bandido"],
+  "beholder": ["observador"],
+  "brown bear": ["urso pardo"],
+  "black dragon": ["dragão negro"],
+  "black pudding": ["pudim negro"],
+  "blue dragon": ["dragão azul"],
+  "bugbear": ["bugurso"],
+  "chimera": ["quimera"],
+  "cockatrice": ["cocatriz"],
+  "commoner": ["plebeu"],
+  "copper dragon": ["dragão de cobre"],
+  "cultist": ["cultista"],
+  "death knight": ["cavaleiro da morte"],
+  "darkmantle": ["manto sombrio"],
+  "displacer beast": ["pantera deslocadora"],
+  "dragon": ["dragão"],
+  "drow": ["elfo negro"],
+  "doppelganger": ["sósia", "doppelganger", "metamorfo"],
+  "dryad": ["dríade"],
+  "fire giant": ["gigante do fogo"],
+  "giant": ["gigante"],
+  "flameskull": ["caveira flamejante"],
+  "flesh golem": ["golem de carne"],
+  "gargoyle": ["gárgula"],
+  "gelatinous cube": ["cubo gelatinoso"],
+  "ghost": ["fantasma"],
+  "ghoul": ["carniçal"],
+  "gibbering mouther": ["boca murmurante"],
+  "green dragon": ["dragão verde"],
+  "griffon": ["grifo"],
+  "guard": ["guarda"],
+  "half-ogre": ["meio-ogro"],
+  "harpy": ["harpia"],
+  "hell hound": ["cão infernal"],
+  "hydra": ["hidra"],
+  "ice devil": ["diabo do gelo"],
+  "giant spider": ["aranha gigante"],
+  "giant wolf spider": ["aranha-lobo gigante"],
+  "lich": ["liche"],
+  "mimic": ["mímico"],
+  "minotaur": ["minotauro"],
+  "mummy": ["múmia"],
+  "night hag": ["bruxa da noite"],
+  "ogre": ["ogro"],
+  "owlbear": ["coruja-urso"],
+  "phase spider": ["aranha etérea"],
+  "purple worm": ["verme púrpura"],
+  "red dragon": ["dragão vermelho"],
+  "spider": ["aranha"],
+  "skeleton": ["esqueleto"],
+  "specter": ["espectro"],
+  "sprite": ["fada"],
+  "stone giant": ["gigante da pedra"],
+  "treant": ["ente"],
+  "vampire": ["vampiro"],
+  "vampire spawn": ["cria de vampiro"],
+  "succubus": ["súcubo"],
+  "werewolf": ["lobisomem"],
+  "white dragon": ["dragão branco"],
+  "winter wolf": ["lobo invernal"],
+  "wolf": ["lobo"],
+  "wraith": ["aparição"],
+  "wyvern": ["serpe"],
+  "yellow mold": ["mofo amarelo"],
+  "zombie": ["zumbi"],
+};
+
+const monsterTypeTranslations = {
+  aberration: "Aberração",
+  beast: "Besta",
+  celestial: "Celestial",
+  construct: "Constructo",
+  dragon: "Dragão",
+  elemental: "Elemental",
+  fey: "Feérico",
+  fiend: "Corruptor",
+  giant: "Gigante",
+  humanoid: "Humanoide",
+  monstrosity: "Monstruosidade",
+  ooze: "Gosma",
+  plant: "Planta",
+  undead: "Morto-vivo",
+};
+
+const monsterNameParts = {
+  adult: "adulto",
+  ancient: "ancestral",
+  young: "jovem",
+  wyrmling: "filhote",
+  black: "negro",
+  blue: "azul",
+  brass: "de latão",
+  bronze: "de bronze",
+  copper: "de cobre",
+  gold: "dourado",
+  green: "verde",
+  red: "vermelho",
+  silver: "prateado",
+  white: "branco",
+  air: "aéreo",
+  earth: "terrestre",
+  fire: "ígneo",
+  water: "aquático",
+  aboleth: "abolete",
+  acolyte: "acólito",
+  androsphinx: "androesfinge",
+  archmage: "arquimago",
+  ape: "macaco",
+  armor: "armadura",
+  assassin: "assassino",
+  awakened: "desperto",
+  axe: "machado",
+  baboon: "babuíno",
+  badger: "texugo",
+  balor: "balor",
+  bandit: "bandido",
+  barbed: "farpado",
+  basilisk: "basilisco",
+  bat: "morcego",
+  beak: "bico",
+  bearded: "barbado",
+  behir: "beir",
+  berserker: "berserker",
+  blink: "saltador",
+  blood: "sanguinário",
+  boar: "javali",
+  bone: "ósseo",
+  bugbear: "bugurso",
+  bulette: "bulette",
+  camel: "camelo",
+  captain: "capitão",
+  cat: "gato",
+  centaur: "centauro",
+  chain: "corrente",
+  chimera: "quimera",
+  chuul: "chuul",
+  clay: "argila",
+  cloaker: "espreitador",
+  cloud: "nuvem",
+  cockatrice: "cocatriz",
+  commoner: "plebeu",
+  constrictor: "constritor",
+  snake: "serpente",
+  couatl: "couatl",
+  crab: "caranguejo",
+  crocodile: "crocodilo",
+  cult: "culto",
+  fanatic: "fanático",
+  cultist: "cultista",
+  darkmantle: "manto sombrio",
+  death: "morte",
+  dog: "cão",
+  devil: "diabo",
+  gnome: "gnomo",
+  deep: "profundezas",
+  svirfneblin: "svirfneblin",
+  deer: "cervo",
+  deva: "deva",
+  dire: "atroz",
+  wolf: "lobo",
+  djinni: "gênio",
+  doppelganger: "metamorfo",
+  horse: "cavalo",
+  draft: "carga",
+  turtle: "tartaruga",
+  dretch: "dretch",
+  drider: "drider",
+  drow: "drow",
+  druid: "druida",
+  dryad: "dríade",
+  duergar: "duergar",
+  dust: "poeira",
+  mephit: "mefito",
+  eagle: "águia",
+  efreeti: "efreeti",
+  elephant: "elefante",
+  elk: "alce",
+  erinyes: "erinyes",
+  ettercap: "ettercap",
+  ettin: "ettin",
+  elemental: "elemental",
+  flesh: "carne",
+  flying: "voador",
+  sword: "espada",
+  frog: "sapo",
+  frost: "gelo",
+  gargoyle: "gárgula",
+  gelatinous: "gelatinoso",
+  cube: "cubo",
+  ghast: "ghast",
+  ghost: "fantasma",
+  ghoul: "carniçal",
+  centipede: "centopeia",
+  beetle: "besouro",
+  goat: "cabra",
+  hyena: "hiena",
+  lizard: "lagarto",
+  octopus: "polvo",
+  owl: "coruja",
+  poisonous: "venenoso",
+  rat: "rato",
+  scorpion: "escorpião",
+  sea: "marinho",
+  shark: "tubarão",
+  spider: "aranha",
+  toad: "sapo",
+  vulture: "abutre",
+  wasp: "vespa",
+  weasel: "doninha",
+  gibbering: "balbuciante",
+  mouther: "bocarra",
+  glabrezu: "glabrezu",
+  gladiator: "gladiador",
+  gnoll: "gnoll",
+  gorgon: "górgona",
+  ooze: "gosma",
+  hag: "bruxa",
+  grick: "grick",
+  griffon: "grifo",
+  grimlock: "grimlock",
+  guard: "guarda",
+  guardian: "guardião",
+  naga: "naga",
+  gynosphinx: "ginosfinge",
+  half: "meio",
+  harpy: "harpia",
+  hawk: "falcão",
+  hound: "cão",
+  hezrou: "hezrou",
+  hill: "colina",
+  hippogriff: "hipogrifo",
+  hobgoblin: "hobgoblin",
+  homunculus: "homúnculo",
+  horned: "chifrudo",
+  hunter: "caçador",
+  hydra: "hidra",
+  ice: "gelo",
+  imp: "diabrete",
+  invisible: "invisível",
+  stalker: "perseguidor",
+  iron: "ferro",
+  jackal: "chacal",
+  killer: "assassino",
+  whale: "baleia",
+  knight: "cavaleiro",
+  kobold: "kobold",
+  kraken: "kraken",
+  lamia: "lâmia",
+  lemure: "lemure",
+  lich: "liche",
+  lion: "leão",
+  lizardfolk: "povo-lagarto",
+  mage: "mago",
+  magma: "magma",
+  magmin: "magmin",
+  mammoth: "mamute",
+  manticore: "mantícora",
+  marilith: "marilith",
+  mastiff: "mastim",
+  medusa: "medusa",
+  merfolk: "povo-do-mar",
+  merrow: "merrow",
+  mimic: "mímico",
+  minotaur: "minotauro",
+  skeleton: "esqueleto",
+  mule: "mula",
+  mummy: "múmia",
+  lord: "senhor",
+  nalfeshnee: "nalfeshnee",
+  nightmare: "pesadelo",
+  noble: "nobre",
+  ochre: "ocre",
+  ogre: "ogro",
+  zombie: "zumbi",
+  oni: "oni",
+  orc: "orc",
+  otyugh: "otyugh",
+  owlbear: "coruja-urso",
+  panther: "pantera",
+  pegasus: "pégaso",
+  phase: "etérea",
+  pit: "abissal",
+  fiend: "corruptor",
+  planetar: "planetar",
+  plesiosaurus: "plesiossauro",
+  polar: "polar",
+  pony: "pônei",
+  priest: "sacerdote",
+  pseudo: "falso",
+  dragon: "dragão",
+  purple: "púrpura",
+  worm: "verme",
+  quasit: "quasit",
+  quipper: "quipper",
+  rakshasa: "rakshasa",
+  raven: "corvo",
+  reef: "recife",
+  remorhaz: "remorhaz",
+  rhinoceros: "rinoceronte",
+  riding: "montaria",
+  roc: "roc",
+  roper: "roper",
+  rug: "tapete",
+  smothering: "sufocante",
+  rust: "ferrugem",
+  monster: "monstro",
+  saber: "dentes-de-sabre",
+  toothed: "",
+  tiger: "tigre",
+  sahuagin: "sahuagin",
+  salamander: "salamandra",
+  satyr: "sátiro",
+  scout: "batedor",
+  shadow: "sombra",
+  shambling: "cambaleante",
+  mound: "monte",
+  shield: "escudo",
+  shrieker: "gritador",
+  solar: "solar",
+  specter: "espectro",
+  spirit: "espírito",
+  sprite: "fada",
+  spy: "espião",
+  steam: "vapor",
+  stirge: "stirge",
+  stone: "pedra",
+  golem: "golem",
+  storm: "tempestade",
+  succubus: "súcubo",
+  incubus: "íncubo",
+  swarm: "enxame",
+  insects: "insetos",
+  tarrasque: "tarrasque",
+  thug: "capanga",
+  treant: "ente",
+  tribal: "tribal",
+  warrior: "guerreiro",
+  triceratops: "tricerátops",
+  troll: "troll",
+  tyrannosaurus: "tiranossauro",
+  rex: "rex",
+  unicorn: "unicórnio",
+  vampire: "vampiro",
+  form: "forma",
+  mist: "névoa",
+  spawn: "cria",
+  veteran: "veterano",
+  violet: "violeta",
+  fungus: "fungo",
+  vrock: "vrock",
+  warhorse: "cavalo de guerra",
+  humanoid: "humanoide",
+  werebear: "urso-garou",
+  wereboar: "javali-garou",
+  wererat: "rato-garou",
+  weretiger: "tigre-garou",
+  werewolf: "lobisomem",
+  wight: "carniçal",
+  will: "vontade",
+  wisp: "fátuo",
+  winter: "invernal",
+  worg: "worg",
+  wraith: "aparição",
+  wyvern: "serpe",
+  xorn: "xorn",
+  yellow: "amarelo",
+  mold: "mofo",
+  human: "humano",
+  hybrid: "híbrida",
+};
+
+const spellSchoolTranslations = {
+  abjuration: "Abjuração",
+  conjuration: "Conjuração",
+  divination: "Adivinhação",
+  enchantment: "Encantamento",
+  evocation: "Evocação",
+  illusion: "Ilusão",
+  necromancy: "Necromancia",
+  transmutation: "Transmutação",
+};
+
+const spellClassTranslations = {
+  bard: "Bardo",
+  cleric: "Clérigo",
+  druid: "Druida",
+  sorcerer: "Feiticeiro",
+  warlock: "Bruxo",
+  wizard: "Mago",
+};
+
+const quickRules = [
+  { title: "Testes de atributo", category: "testes", tags: "perícia habilidade d20 CD dificuldade", summary: "Role 1d20 e some o modificador de atributo; se tiver proficiência aplicável, some também o bônus de proficiência. O resultado iguala ou supera a Classe de Dificuldade (CD) para ter sucesso." },
+  { title: "Classes de Dificuldade", category: "testes", tags: "CD fácil moderada difícil muito difícil", summary: "Referência rápida de CD: 5 fácil, 10 moderada, 15 difícil, 20 muito difícil e 25 quase impossível. O Mestre define a CD conforme a situação." },
+  { title: "Vantagem e desvantagem", category: "testes", tags: "d20 rolagem vantagem desvantagem", summary: "Role dois d20: com vantagem use o maior; com desvantagem use o menor. Se ambas se aplicarem ao mesmo teste, anulam-se. Fontes múltiplas não acumulam dados extras." },
+  { title: "Testes resistidos", category: "testes", tags: "disputa contestado agarrar furtividade", summary: "Os envolvidos fazem testes apropriados. O maior resultado vence; em empate, a situação permanece como estava antes da disputa." },
+  { title: "Iniciativa e turno", category: "combate", tags: "ordem combate iniciativa d20 destreza ação", summary: "No início do combate, cada participante rola iniciativa (1d20 + modificador de Destreza). Em seu turno, pode se mover até seu deslocamento e realizar uma ação; habilidades podem conceder ação bônus." },
+  { title: "Ataque de oportunidade", category: "combate", tags: "reação alcance sair movimento", summary: "Quando uma criatura visível sai do seu alcance usando o próprio movimento, você pode gastar sua reação para fazer um ataque corpo a corpo. Teleporte e deslocamento forçado normalmente não provocam esse ataque." },
+  { title: "Cobertura", category: "combate", tags: "meia cobertura tres quartos cobertura total CA destreza", summary: "Meia cobertura concede +2 na CA e nos testes de resistência de Destreza; três quartos concede +5. Cobertura total impede ser alvo direto de ataques e magias." },
+  { title: "Morte e estabilização", category: "combate", tags: "pontos de vida morte salvaguarda morte 0 PV", summary: "A 0 PV, faça uma salvaguarda contra a morte no início do turno: 10 ou mais é sucesso. Três sucessos estabilizam; três falhas causam morte. Um 1 natural conta como duas falhas; um 20 natural recupera 1 PV." },
+  { title: "Concentração", category: "magia", tags: "magia dano teste constituição CD10", summary: "Você só mantém uma magia de concentração por vez. Ao sofrer dano, faça um teste de resistência de Constituição com CD 10 ou metade do dano recebido, usando o maior valor; falhar encerra a magia." },
+  { title: "CD e ataque de magia", category: "magia", tags: "magia ataque acerto salvaguarda conjurador", summary: "CD para resistir às suas magias = 8 + bônus de proficiência + modificador do atributo de conjuração. Ataque mágico = bônus de proficiência + o mesmo modificador." },
+  { title: "Descanso curto", category: "exploracao", tags: "pausa cura dados de vida hora", summary: "Uma pausa de pelo menos 1 hora permite gastar Dados de Vida para recuperar PV. Algumas características de classe também são recuperadas após um descanso curto." },
+  { title: "Descanso longo", category: "exploracao", tags: "sono recuperar PV magia oito horas", summary: "Um descanso longo dura pelo menos 8 horas e recupera PV e recursos conforme as regras da classe. Um personagem precisa aguardar 24 horas entre descansos longos." },
+  { title: "Condição: agarrado", category: "combate", tags: "condição agarrado deslocamento grapple", summary: "O deslocamento da criatura agarrada torna-se 0 e ela não pode receber bônus de deslocamento. A condição termina se o agarrador ficar incapacitado ou se a criatura sair do alcance." },
+  { title: "Condição: caído", category: "combate", tags: "condição caído prone ataque corpo a corpo", summary: "A criatura caída rasteja ou gasta metade do deslocamento para se levantar. Ataques corpo a corpo contra ela têm vantagem; ataques à distância têm desvantagem." },
+  { title: "Condição: envenenado", category: "combate", tags: "condição veneno testes ataque", summary: "A criatura tem desvantagem em jogadas de ataque e testes de atributo enquanto a condição durar." },
+];
+
+const labels = {
+  spells: "Magias",
+  tricks: "Truques",
+  monsters: "Criaturas",
+  rules: "Regras",
+  campaigns: "Campanhas",
+  dashboard: "Visão geral",
+  initiative: "Iniciativa",
+  notes: "Anotações",
+};
+
+function loadStored(key, fallback) {
+  try {
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : fallback;
+  } catch (error) {
+    console.error(`Não foi possível ler "${key}" do armazenamento local.`, error);
+    return fallback;
+  }
+}
+
+function saveStored(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.error(`Não foi possível salvar "${key}" no armazenamento local.`, error);
+    showToast("Não foi possível salvar. Verifique o espaço disponível no navegador.");
+    return false;
+  }
+  return true;
+}
+
+function loadCampaigns() {
+  const stored = loadStored("cronica-campaigns", []);
+  const campaigns = Array.isArray(stored) ? stored : [];
+  if (localStorage.getItem("cronica-campaigns-migrated") === "true") return campaigns;
+  if (!campaigns.some((campaign) => campaign.id === DEFAULT_CAMPAIGN.id)) {
+    campaigns.unshift({ ...DEFAULT_CAMPAIGN });
+  }
+  if (saveStored("cronica-campaigns", campaigns)) {
+    try {
+      localStorage.setItem("cronica-campaigns-migrated", "true");
+    } catch (error) {
+      console.error("Não foi possível registrar a migração das campanhas.", error);
+    }
+  }
+  return campaigns;
+}
+
+async function requestApi(path) {
+  const normalizedPath = path.startsWith("/api/2014")
+    ? path
+    : `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+  const url = normalizedPath.startsWith("http")
+    ? normalizedPath
+    : `https://www.dnd5eapi.co${normalizedPath}`;
+  return requestExternalJson(url, "www.dnd5eapi.co");
+}
+
+async function requestExternalJson(url, allowedHost) {
+  const parsedUrl = new URL(url);
+  if (parsedUrl.protocol !== "https:" || parsedUrl.hostname !== allowedHost) {
+    throw new Error("A URL retornada pela API não pertence à fonte esperada.");
+  }
+  const response = await fetch(parsedUrl.href);
+  if (!response.ok) {
+    throw new Error(`A API respondeu com status ${response.status}.`);
+  }
+  return response.json();
+}
+
+function normalizeSearchTerm(value) {
+  return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("pt-BR");
+}
+
+function resolveSearchTerm(query, translations) {
+  const normalizedQuery = normalizeSearchTerm(query);
+  for (const [englishName, portugueseNames] of Object.entries(translations)) {
+    if (
+      normalizeSearchTerm(englishName) === normalizedQuery ||
+      portugueseNames.some((name) => normalizeSearchTerm(name) === normalizedQuery)
+    ) return englishName;
+  }
+  return query;
+}
+
+function getLocalizedName(name, translations) {
+  return translations[normalizeSearchTerm(name)]?.[0] || name;
+}
+
+function localizeSpellValue(value) {
+  if (!value) return "";
+  return String(value)
+    .replace(/\binstantaneous\b/gi, "instantânea")
+    .replace(/\bup to\b/gi, "até")
+    .replace(/\b(\d+)\s+minutes?\b/gi, (_, amount) => `${amount} ${amount === "1" ? "minuto" : "minutos"}`)
+    .replace(/\b(\d+)\s+rounds?\b/gi, (_, amount) => `${amount} ${amount === "1" ? "rodada" : "rodadas"}`)
+    .replace(/\b(\d+)\s+hours?\b/gi, (_, amount) => `${amount} ${amount === "1" ? "hora" : "horas"}`)
+    .replace(/\b(\d+)\s+feet\b/gi, (_, amount) => `${amount} pés`)
+    .replace(/\bbonus action(s)?\b/gi, "ação bônus")
+    .replace(/\baction(s)?\b/gi, "ação")
+    .replace(/\bminutes?\b/gi, "minutos")
+    .replace(/\brounds?\b/gi, "rodadas")
+    .replace(/\bhours?\b/gi, "horas")
+    .replace(/\bfeet\b/gi, "pés")
+    .replace(/\btouch\b/gi, "Toque")
+    .replace(/\bself\b/gi, "Pessoal");
+}
+
+function getLocalizedMonsterName(name) {
+  const normalizedName = normalizeSearchTerm(name);
+  const exactTranslation = monsterTranslations[normalizedName]?.[0];
+  if (exactTranslation) return exactTranslation;
+  return String(name).replace(/[(),']/g, "").split(/\s+/)
+    .map((part) => monsterNameParts[normalizeSearchTerm(part)] ?? part)
+    .filter(Boolean)
+    .join(" ");
+}
+
+function getMonsterSearchName(query) {
+  const exactName = resolveSearchTerm(query, monsterTranslations);
+  if (exactName !== query) return exactName;
+  const reverseParts = Object.entries(monsterNameParts)
+    .filter(([, portuguese]) => portuguese)
+    .map(([english, portuguese]) => [normalizeSearchTerm(portuguese), english])
+    .sort(([first], [second]) => second.length - first.length);
+  let normalizedQuery = normalizeSearchTerm(query);
+  reverseParts.filter(([portuguese]) => portuguese.includes(" ")).forEach(([portuguese, english]) => {
+    normalizedQuery = normalizedQuery.replace(
+      new RegExp(`\\b${portuguese.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "g"),
+      english,
+    );
+  });
+  const reverseSingleWords = new Map(reverseParts.filter(([portuguese]) => !portuguese.includes(" ")));
+  return normalizedQuery.split(/\s+/)
+    .filter((part) => !["de", "do", "da", "dos", "das"].includes(part))
+    .map((part) => reverseSingleWords.get(part) || part)
+    .join(" ");
+}
+
+function getLocalizedMonsterType(type) {
+  return monsterTypeTranslations[normalizeSearchTerm(type)] || type;
+}
+
+function getLocalizedMovement(movement) {
+  const movementTypes = {
+    burrow: "escavação",
+    climb: "escalada",
+    fly: "voo",
+    swim: "natação",
+    walk: "terrestre",
+  };
+  return Object.entries(movement || {})
+    .map(([kind, value]) => `${movementTypes[kind] || kind}: ${String(value).replace(/ft\./g, "pés")}`)
+    .join(", ");
+}
+
+function getArmorClassValue(monster) {
+  if (Array.isArray(monster.armor_class)) return monster.armor_class[0]?.value ?? "";
+  return monster.armor_class ?? "";
+}
+
+function formatMonsterValues(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => {
+      if (typeof item === "string") return item;
+      if (item && typeof item === "object") {
+        const name = item.name || item.type?.name;
+        const description = item.desc || item.value;
+        return [name, description].filter(Boolean).join(": ");
+      }
+      return String(item);
+    }).filter(Boolean).join(", ");
+  }
+  if (value && typeof value === "object") {
+    const localizedLabels = {
+      darkvision: "visão no escuro",
+      passive_perception: "percepção passiva",
+      blindsight: "visão às cegas",
+      tremorsense: "sentido sísmico",
+      truesight: "visão verdadeira",
+    };
+    return Object.entries(value)
+      .filter(([, item]) => item != null && item !== "" && String(item).toLowerCase() !== "undefined")
+      .map(([key, item]) => `${localizedLabels[normalizeSearchTerm(key)] || key}: ${String(item).replace(/ft\./g, "pés")}`)
+      .join(", ");
+  }
+  return value ? String(value) : "";
+}
+
+function buildMonsterTooltip(monster, tooltipId) {
+  const abilities = [
+    ["strength", "FOR"],
+    ["dexterity", "DES"],
+    ["constitution", "CON"],
+    ["intelligence", "INT"],
+    ["wisdom", "SAB"],
+    ["charisma", "CAR"],
+  ].map(([key, label]) => `<span>${label} <strong>${escapeHtml(monster[key] ?? "—")}</strong></span>`).join("");
+  const properties = [
+    ["Testes de resistência", formatMonsterValues(monster.saving_throws || {
+      FOR: monster.strength_save,
+      DES: monster.dexterity_save,
+      CON: monster.constitution_save,
+      INT: monster.intelligence_save,
+      SAB: monster.wisdom_save,
+      CAR: monster.charisma_save,
+    })],
+    ["Perícias", formatMonsterValues(monster.skills)],
+    ["Resistências a dano", formatMonsterValues(monster.damage_resistances)],
+    ["Imunidades a dano", formatMonsterValues(monster.damage_immunities)],
+    ["Vulnerabilidades", formatMonsterValues(monster.damage_vulnerabilities)],
+    ["Imunidades a condições", formatMonsterValues(monster.condition_immunities)],
+    ["Sentidos", formatMonsterValues(monster.senses)],
+    ["Idiomas", formatMonsterValues(monster.languages)],
+  ].filter(([, value]) => value);
+  const features = [
+    ["Traços", monster.special_abilities || monster.traits],
+    ["Ações", monster.actions],
+    ["Ações bônus", monster.bonus_actions],
+    ["Reações", monster.reactions],
+    ["Ações lendárias", monster.legendary_actions],
+  ].map(([heading, entries]) => {
+    if (!Array.isArray(entries) || !entries.length) return "";
+    return `<section><h4>${heading}</h4>${entries.map((entry) => `<p><strong>${escapeHtml(entry.name || "Habilidade")}:</strong> ${escapeHtml(entry.desc || entry.description || "")}</p>`).join("")}</section>`;
+  }).join("");
+  const propertyMarkup = properties.map(([label, value]) => `<p><strong>${label}:</strong> ${escapeHtml(value)}</p>`).join("");
+  const sizeLabels = {
+    tiny: "Miúdo",
+    small: "Pequeno",
+    medium: "Médio",
+    large: "Grande",
+    huge: "Enorme",
+    gargantuan: "Imenso",
+  };
+  const alignmentLabels = {
+    "lawful good": "leal e bom",
+    "neutral good": "neutro e bom",
+    "chaotic good": "caótico e bom",
+    "lawful neutral": "leal e neutro",
+    "true neutral": "neutro",
+    "neutral": "neutro",
+    "chaotic neutral": "caótico e neutro",
+    "lawful evil": "leal e mau",
+    "neutral evil": "neutro e mau",
+    "chaotic evil": "caótico e mau",
+    "unaligned": "sem alinhamento",
+  };
+  const size = sizeLabels[normalizeSearchTerm(monster.size)] || monster.size || "";
+  const alignment = alignmentLabels[normalizeSearchTerm(monster.alignment)] || monster.alignment || "";
+  const source = monster.document__title || (monster.provider === "open5e" ? "Open5e" : "SRD 2014");
+  return `<div class="combatant-tooltip" id="${tooltipId}" role="tooltip">
+    <div class="tooltip-heading"><strong>${escapeHtml(getLocalizedMonsterName(monster.name))}</strong><span>ND ${escapeHtml(monster.challenge_rating ?? monster.cr ?? "—")}</span></div>
+    <p class="tooltip-subtitle">${escapeHtml(size)} ${escapeHtml(getLocalizedMonsterType(monster.type || ""))}${alignment ? ` · ${escapeHtml(alignment)}` : ""}</p>
+    <p class="tooltip-subtitle">Fonte: ${escapeHtml(source)}</p>
+    <p><strong>CA:</strong> ${escapeHtml(getArmorClassValue(monster) || "—")} · <strong>PV:</strong> ${escapeHtml(monster.hit_points ?? "—")} ${monster.hit_dice ? `(${escapeHtml(monster.hit_dice)})` : ""}</p>
+    <p><strong>Deslocamento:</strong> ${escapeHtml(getLocalizedMovement(monster.speed) || "—")}</p>
+    <div class="tooltip-abilities">${abilities}</div>
+    ${propertyMarkup ? `<section>${propertyMarkup}</section>` : ""}
+    ${features}
+  </div>`;
+}
+
+function renderCreatureSuggestions(creatures) {
+  const listbox = document.querySelector("#creature-suggestions");
+  listbox.innerHTML = creatures.map((creature, index) => `
+    <button class="creature-suggestion" type="button" role="option" aria-selected="false" data-creature-index="${index}">
+      <span><strong>${escapeHtml(getLocalizedMonsterName(creature.name))}</strong><small>${escapeHtml(creature.name)}</small></span>
+      <span class="suggestion-source">${escapeHtml(creature.provider === "open5e" ? creature.document__title || "Open5e" : "SRD 2014")}</span>
+    </button>`).join("");
+  listbox.hidden = creatures.length === 0;
+  document.querySelector("#combatant-name").setAttribute("aria-expanded", String(creatures.length > 0));
+}
+
+async function searchInitiativeCreatures(query) {
+  const requestId = ++state.initiative.requestId;
+  const listbox = document.querySelector("#creature-suggestions");
+  const status = document.querySelector("#creature-search-status");
+  if (query.trim().length < 2) {
+    state.initiative.creatures = [];
+    renderCreatureSuggestions([]);
+    status.textContent = "Digite pelo menos 2 letras para buscar no SRD 2014.";
+    return;
+  }
+  status.textContent = "Buscando no SRD 2014 e nas fontes abertas...";
+  try {
+    const searchTerm = getMonsterSearchName(query);
+    const open5eParams = new URLSearchParams({ name__icontains: searchTerm, limit: "12" });
+    const results = await Promise.allSettled([
+      requestApi(`/monsters?${new URLSearchParams({ name: searchTerm })}`),
+      requestExternalJson(`${OPEN5E_BASE}/monsters/?${open5eParams}`, "api.open5e.com"),
+    ]);
+    if (requestId !== state.initiative.requestId) return;
+    const officialResult = results[0];
+    const open5eResult = results[1];
+    if (officialResult.status === "rejected") {
+      console.error("Falha ao buscar criaturas no SRD 2014.", officialResult.reason);
+    }
+    if (open5eResult.status === "rejected") {
+      console.error("Falha ao buscar criaturas no Open5e.", open5eResult.reason);
+    }
+    const officialCreatures = officialResult.status === "fulfilled"
+      ? officialResult.value.results.map((creature) => ({ ...creature, provider: "dnd5e" }))
+      : [];
+    const open5eCreatures = open5eResult.status === "fulfilled"
+      ? open5eResult.value.results.map((creature) => ({ ...creature, provider: "open5e" }))
+      : [];
+    state.initiative.creatures = [...officialCreatures, ...open5eCreatures].slice(0, 12);
+    renderCreatureSuggestions(state.initiative.creatures);
+    status.textContent = state.initiative.creatures.length
+      ? `${state.initiative.creatures.length} sugestão(ões) encontradas no SRD 2014 e em fontes abertas.`
+      : "Nenhuma criatura encontrada; você ainda pode adicionar o nome manualmente.";
+    if (officialResult.status === "rejected" && open5eResult.status === "rejected") {
+      status.textContent = "Busca indisponível. Você ainda pode adicionar o nome manualmente.";
+    }
+  } catch (error) {
+    if (requestId !== state.initiative.requestId) return;
+    console.error("Falha ao buscar criaturas para a iniciativa.", error);
+    state.initiative.creatures = [];
+    renderCreatureSuggestions([]);
+    status.textContent = "Busca indisponível. Você ainda pode adicionar o nome manualmente.";
+  }
+  listbox.hidden = state.initiative.creatures.length === 0;
+}
+
+async function selectInitiativeCreature(creature) {
+  const requestId = ++state.initiative.requestId;
+  const status = document.querySelector("#creature-search-status");
+  status.textContent = `Carregando ficha de ${creature.name}...`;
+  renderCreatureSuggestions([]);
+  try {
+    const detail = creature.provider === "open5e"
+      ? creature
+      : await requestApi(creature.url);
+    if (requestId !== state.initiative.requestId) return;
+    state.initiative.selectedMonster = { ...detail, provider: creature.provider || "dnd5e" };
+    document.querySelector("#combatant-name").value = getLocalizedMonsterName(detail.name);
+    document.querySelector("#combatant-hp").value = detail.hit_points ?? "";
+    document.querySelector("#combatant-ac").value = getArmorClassValue(detail);
+    setMonsterImageButton(
+      document.querySelector("#selected-creature-image"),
+      getMonsterImageUrl({ ...detail, provider: creature.provider || "dnd5e" }),
+      getLocalizedMonsterName(detail.name),
+    );
+    const source = detail.document__title || "SRD 2014";
+    status.textContent = `Ficha carregada: ${detail.name} (${source}). PV e CA preenchidos; ajuste se necessário.`;
+  } catch (error) {
+    if (requestId !== state.initiative.requestId) return;
+    console.error(`Falha ao carregar ficha de ${creature.name}.`, error);
+    state.initiative.selectedMonster = null;
+    status.textContent = "Não foi possível carregar a ficha. Os valores podem ser preenchidos manualmente.";
+  }
+}
+
+function getSafeExternalUrl(value) {
+  if (!value) return "";
+  try {
+    const url = new URL(value);
+    return ["https:", "http:"].includes(url.protocol) ? url.href : "";
+  } catch {
+    return "";
+  }
+}
+
+function getMonsterImageUrl(monster) {
+  const image = monster?.image || monster?.image_url || monster?.img_url;
+  if (typeof image !== "string" || !image.trim()) return "";
+  try {
+    const baseUrl = monster.provider === "dnd5e" && image.startsWith("/")
+      ? "https://www.dnd5eapi.co"
+      : undefined;
+    const url = new URL(image, baseUrl);
+    if (url.protocol !== "https:") return "";
+    if (monster.provider === "dnd5e" && url.hostname !== "www.dnd5eapi.co") return "";
+    return url.href;
+  } catch {
+    return "";
+  }
+}
+
+function getMonsterImageCacheKey(monster) {
+  return `${monster.provider || "dnd5e"}:${monster.url || monster.slug || monster.name}`;
+}
+
+function setMonsterImageButton(button, imageUrl, name) {
+  button.hidden = !imageUrl;
+  if (!imageUrl) {
+    delete button.dataset.imageUrl;
+    return;
+  }
+  button.dataset.imageUrl = imageUrl;
+  button.dataset.imageAlt = `Imagem de ${name}`;
+  button.setAttribute("aria-label", `Ampliar imagem de ${name}`);
+  button.title = `Ampliar imagem de ${name}`;
+}
+
+function showMonsterImage(imageUrl, alt) {
+  const image = document.querySelector("#monster-image-preview");
+  const status = document.querySelector("#monster-image-status");
+  image.src = imageUrl;
+  image.alt = alt;
+  status.textContent = "";
+  document.querySelector("#monster-image-dialog").showModal();
+}
+
+async function loadVisibleMonsterImages(requestId) {
+  const visibleMonsters = state.monsters.results.slice(0, state.monsters.visibleCount);
+  await Promise.all(visibleMonsters.map(async (monster) => {
+    const cacheKey = getMonsterImageCacheKey(monster);
+    if (state.monsters.imageCache.has(cacheKey) || getMonsterImageUrl(monster)) return;
+    if (monster.provider !== "dnd5e" || !monster.url) return;
+    try {
+      const detail = await requestApi(monster.url);
+      state.monsters.imageCache.set(cacheKey, getMonsterImageUrl({ ...detail, provider: "dnd5e" }));
+    } catch (error) {
+      console.error(`Não foi possível verificar a imagem da criatura ${monster.name}.`, error);
+    }
+  }));
+  if (requestId === state.monsters.requestId) renderMonsters();
+}
+
+async function loadOpen5eDocuments() {
+  if (state.monsters.documents) return;
+  const select = document.querySelector("#monster-document");
+  select.disabled = true;
+  try {
+    const data = await requestExternalJson(`${OPEN5E_BASE}/documents/?limit=100`, "api.open5e.com");
+    state.monsters.documents = data.results;
+    select.innerHTML = `<option value="">Todas as fontes abertas</option>${data.results
+      .map((source) => `<option value="${escapeHtml(source.slug)}">${escapeHtml(source.title)}</option>`)
+      .join("")}`;
+  } catch (error) {
+    console.error("Falha ao carregar o índice de publicações abertas do Open5e.", error);
+    showToast("Não foi possível carregar a lista de publicações Open5e.");
+  } finally {
+    select.disabled = false;
+  }
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[character]);
+}
+
+function showToast(message) {
+  const region = document.querySelector("#toast-region");
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.textContent = message;
+  region.append(toast);
+  window.setTimeout(() => toast.remove(), 3200);
+}
+
+function navigate(viewName, { updateHistory = true, scroll = true } = {}) {
+  if (!labels[viewName]) viewName = "dashboard";
+  if (updateHistory && window.location.hash !== `#${viewName}`) {
+    window.history.pushState(null, "", `#${viewName}`);
+  }
+  document.querySelectorAll(".view").forEach((view) => {
+    const active = view.id === `view-${viewName}`;
+    view.hidden = !active;
+    view.classList.toggle("is-visible", active);
+  });
+  document.querySelectorAll(".nav-item").forEach((button) => {
+    const active = button.dataset.view === viewName;
+    button.classList.toggle("is-active", active);
+    if (active) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  });
+  document.querySelector("#breadcrumb-current").textContent = labels[viewName];
+  if (viewName === "dashboard") renderDashboardCampaign();
+  if (viewName === "spells" && !state.spells.results.length) loadSpells();
+  if (viewName === "tricks" && !state.tricks.results.length) loadTricks();
+  if (viewName === "monsters" && !state.monsters.results.length) loadMonsters();
+  if (viewName === "rules") renderRules();
+  if (viewName === "initiative") renderInitiative();
+  if (viewName === "notes") renderNote();
+  if (scroll) window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function loadSpells() {
+  const requestId = ++state.spells.requestId;
+  const feedback = document.querySelector("#spell-feedback");
+  const count = document.querySelector("#spell-count");
+  feedback.textContent = "Consultando o compêndio...";
+  feedback.classList.remove("is-error");
+  document.querySelector("#spell-list").innerHTML = "";
+  document.querySelector("#spell-count").textContent = "Buscando...";
+  const params = new URLSearchParams();
+  if (state.spells.query) params.set("name", resolveSearchTerm(state.spells.query, spellTranslations));
+  if (state.spells.level) params.set("level", state.spells.level);
+  try {
+    const data = await requestApi(`/spells?${params}`);
+    if (requestId !== state.spells.requestId) return;
+    state.spells.results = data.results;
+    state.spells.visibleCount = PAGE_SIZE;
+    renderSpells();
+    count.textContent = `${Math.min(state.spells.visibleCount, data.count)} de ${data.count} ${data.count === 1 ? "magia" : "magias"}`;
+    feedback.textContent = state.spells.results.length ? "" : "Nenhuma magia encontrada. Tente outro nome ou círculo.";
+    document.querySelector("#spell-more").hidden = state.spells.results.length <= state.spells.visibleCount;
+  } catch (error) {
+    if (requestId !== state.spells.requestId) return;
+    console.error("Falha ao carregar magias da D&D 5e API.", error);
+    feedback.textContent = "Não foi possível carregar as magias. Verifique sua conexão e tente novamente.";
+    feedback.classList.add("is-error");
+    count.textContent = "Compêndio indisponível";
+  }
+}
+
+function renderSpells() {
+  const list = document.querySelector("#spell-list");
+  list.innerHTML = state.spells.results.slice(0, state.spells.visibleCount).map((spell) => `
+    <button class="resource-card" type="button" data-resource="spells" data-index="${state.spells.results.indexOf(spell)}">
+      <div class="resource-card-top"><h3>${escapeHtml(getLocalizedName(spell.name, spellTranslations))}</h3><span class="resource-level">MAGIA</span></div>
+      <p>Nome original: ${escapeHtml(spell.name)} · D&D 5e 2014.</p>
+      <div class="resource-meta"><span>Consultar descrição, círculo e componentes →</span></div>
+    </button>`).join("");
+}
+
+async function loadTricks() {
+  const requestId = ++state.tricks.requestId;
+  const feedback = document.querySelector("#trick-feedback");
+  const count = document.querySelector("#trick-count");
+  feedback.textContent = "Consultando os truques...";
+  feedback.classList.remove("is-error");
+  document.querySelector("#trick-list").innerHTML = "";
+  count.textContent = "Buscando...";
+  try {
+    if (!state.tricks.catalog) {
+      const data = await requestApi("/spells?level=0");
+      state.tricks.catalog = data.results;
+    }
+    if (requestId !== state.tricks.requestId) return;
+    const query = normalizeSearchTerm(state.tricks.query);
+    state.tricks.results = state.tricks.catalog.filter((spell) => (
+      normalizeSearchTerm(spell.name).includes(query)
+      || normalizeSearchTerm(getLocalizedName(spell.name, spellTranslations)).includes(query)
+    ));
+    state.tricks.visibleCount = PAGE_SIZE;
+    renderTricks();
+    count.textContent = `${Math.min(state.tricks.visibleCount, state.tricks.results.length)} de ${state.tricks.results.length} ${state.tricks.results.length === 1 ? "truque" : "truques"}`;
+    feedback.textContent = state.tricks.results.length ? "" : "Nenhum truque encontrado. Tente outro nome.";
+    document.querySelector("#trick-more").hidden = state.tricks.results.length <= state.tricks.visibleCount;
+    const missingTranslations = state.tricks.catalog.filter((spell) => !trickDescriptions[normalizeSearchTerm(spell.name)]);
+    if (missingTranslations.length) {
+      console.error("Descrições de truques sem tradução PT-BR.", missingTranslations.map((spell) => spell.name));
+      feedback.textContent = `${missingTranslations.length} truque(s) ainda sem descrição traduzida.`;
+    }
+  } catch (error) {
+    if (requestId !== state.tricks.requestId) return;
+    console.error("Falha ao carregar truques da D&D 5e API.", error);
+    feedback.textContent = "Não foi possível carregar os truques. Verifique sua conexão e tente novamente.";
+    feedback.classList.add("is-error");
+    count.textContent = "Compêndio indisponível";
+  }
+}
+
+function renderTricks() {
+  document.querySelector("#trick-list").innerHTML = state.tricks.results
+    .slice(0, state.tricks.visibleCount)
+    .map((spell, index) => `
+      <button class="resource-card" type="button" data-resource="tricks" data-index="${index}">
+        <div class="resource-card-top"><h3>${escapeHtml(getLocalizedName(spell.name, spellTranslations))}</h3><span class="resource-level">TRUQUE</span></div>
+        <p>D&D 5e 2014 · Nome original na API: ${escapeHtml(spell.name)}.</p>
+        <div class="resource-meta"><span>Ver descrição em português e detalhes →</span></div>
+      </button>`).join("");
+}
+
+async function loadMonsters({ append = false } = {}) {
+  const requestId = ++state.monsters.requestId;
+  const feedback = document.querySelector("#monster-feedback");
+  const count = document.querySelector("#monster-count");
+  feedback.textContent = "Consultando o bestiário...";
+  feedback.classList.remove("is-error");
+  if (!append) {
+    document.querySelector("#monster-list").innerHTML = "";
+    count.textContent = "Buscando...";
+  }
+  document.querySelector("#monster-source-label").textContent = state.monsters.provider === "open5e"
+    ? "Open5e · conteúdo de fontes abertas"
+    : "D&D 5e API · regras de 2014";
+  try {
+    let data;
+    if (state.monsters.provider === "open5e") {
+      let url = state.monsters.next;
+      if (!append || !url) {
+        const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
+        if (state.monsters.query) params.set("name__icontains", getMonsterSearchName(state.monsters.query));
+        if (state.monsters.documentSlug) params.set("document__slug", state.monsters.documentSlug);
+        url = `${OPEN5E_BASE}/monsters/?${params}`;
+      }
+      data = await requestExternalJson(url, "api.open5e.com");
+      if (requestId !== state.monsters.requestId) return;
+      const results = data.results.map((monster) => ({ ...monster, provider: "open5e" }));
+      state.monsters.results = append ? [...state.monsters.results, ...results] : results;
+      state.monsters.next = data.next;
+      state.monsters.total = data.count;
+      state.monsters.visibleCount = state.monsters.results.length;
+    } else {
+      if (!state.monsters.nameIndex) {
+        data = await requestApi("/monsters");
+        state.monsters.nameIndex = data.results;
+      }
+      if (requestId !== state.monsters.requestId) return;
+      const query = normalizeSearchTerm(state.monsters.query);
+      const resolvedQuery = normalizeSearchTerm(getMonsterSearchName(state.monsters.query));
+      const matchingMonsters = query
+        ? state.monsters.nameIndex.filter((monster) => (
+          normalizeSearchTerm(monster.name).includes(query)
+          || normalizeSearchTerm(getLocalizedMonsterName(monster.name)).includes(query)
+          || normalizeSearchTerm(monster.name).includes(resolvedQuery)
+        ))
+        : state.monsters.nameIndex;
+      state.monsters.results = matchingMonsters.map((monster) => ({ ...monster, provider: "dnd5e" }));
+      state.monsters.next = null;
+      state.monsters.total = state.monsters.results.length;
+      state.monsters.visibleCount = PAGE_SIZE;
+    }
+    renderMonsters();
+    loadVisibleMonsterImages(requestId);
+    const visibleCount = Math.min(state.monsters.visibleCount, state.monsters.total);
+    count.textContent = `${visibleCount} de ${state.monsters.total} ${state.monsters.total === 1 ? "criatura" : "criaturas"}`;
+    feedback.textContent = state.monsters.results.length ? "" : "Nenhuma criatura encontrada. Tente outro nome ou publicação.";
+    document.querySelector("#monster-more").hidden = state.monsters.provider === "open5e"
+      ? !state.monsters.next
+      : state.monsters.results.length <= state.monsters.visibleCount;
+  } catch (error) {
+    if (requestId !== state.monsters.requestId) return;
+    console.error(
+      state.monsters.provider === "open5e"
+        ? "Falha ao carregar criaturas do Open5e."
+        : "Falha ao carregar criaturas da D&D 5e API.",
+      error,
+    );
+    feedback.textContent = "Não foi possível carregar as criaturas. Verifique sua conexão e tente novamente.";
+    feedback.classList.add("is-error");
+    count.textContent = "Bestiário indisponível";
+  }
+}
+
+function renderMonsters() {
+  document.querySelector("#monster-list").innerHTML = state.monsters.results.slice(0, state.monsters.visibleCount).map((monster, index) => `
+    <article class="resource-card">
+      <div class="resource-card-top">
+        <button class="resource-card-open monster-card-name" type="button" data-resource="monsters" data-index="${index}"><h3>${escapeHtml(getLocalizedMonsterName(monster.name))}</h3></button>
+        <button class="monster-image-button" type="button" data-image-preview data-image-url="${escapeHtml(getMonsterImageUrl(monster) || state.monsters.imageCache.get(getMonsterImageCacheKey(monster)) || "")}" data-image-alt="Imagem de ${escapeHtml(getLocalizedMonsterName(monster.name))}" aria-label="Ampliar imagem de ${escapeHtml(getLocalizedMonsterName(monster.name))}" title="Ampliar imagem" ${getMonsterImageUrl(monster) || state.monsters.imageCache.get(getMonsterImageCacheKey(monster)) ? "" : "hidden"}>▧</button>
+        <span class="resource-level monster-badge">CRIATURA</span>
+      </div>
+      <button class="resource-card-details" type="button" data-resource="monsters" data-index="${index}">
+        <p>${escapeHtml(monster.document__title || "D&D 5e 2014 · SRD")} · nome original: ${escapeHtml(monster.name)}.</p>
+        <span class="resource-meta">${escapeHtml(monster.type ? getLocalizedMonsterType(monster.type) : "Consultar ficha e estatísticas")} →</span>
+      </button>
+    </article>`).join("");
+}
+
+async function showResourceDetails(category, index, resourceOverride = null) {
+  const resource = resourceOverride || state[category].results[index];
+  if (!resource) return;
+  const dialog = document.querySelector("#detail-dialog");
+  const body = document.querySelector("#detail-body");
+  const isSpell = category === "spells" || category === "tricks";
+  const isTrick = category === "tricks";
+  document.querySelector("#detail-kicker").textContent = isSpell
+    ? `${category === "tricks" ? "TRUQUE" : "MAGIA"} · D&D 5E 2014`
+    : "CRIATURA · D&D 5E 2014";
+  document.querySelector("#detail-title").textContent = isSpell
+    ? getLocalizedName(resource.name, spellTranslations)
+    : getLocalizedMonsterName(resource.name);
+  const detailImageButton = document.querySelector("#detail-image-button");
+  setMonsterImageButton(detailImageButton, "", "");
+  document.querySelector("#detail-chips").innerHTML = "";
+  body.textContent = "Carregando detalhes...";
+  dialog.showModal();
+  try {
+    const detail = category === "monsters" && resource.provider === "open5e"
+      ? resource
+      : await requestApi(resource.url);
+    let imageMarkup = "";
+    if (category === "monsters") {
+      const monsterDetail = { ...detail, provider: resource.provider || "dnd5e" };
+      const imageUrl = getMonsterImageUrl(monsterDetail);
+      state.monsters.imageCache.set(getMonsterImageCacheKey(resource), imageUrl);
+      setMonsterImageButton(
+        detailImageButton,
+        imageUrl,
+        getLocalizedMonsterName(detail.name),
+      );
+      imageMarkup = imageUrl
+        ? `<button class="detail-monster-image" type="button" data-image-preview data-image-url="${escapeHtml(imageUrl)}" data-image-alt="Imagem de ${escapeHtml(getLocalizedMonsterName(detail.name))}" aria-label="Ampliar imagem de ${escapeHtml(getLocalizedMonsterName(detail.name))}"><img src="${escapeHtml(imageUrl)}" alt="" loading="lazy" /><span>Ampliar imagem</span></button>`
+        : "";
+    }
+    if (isSpell) {
+      const trickKey = normalizeSearchTerm(detail.name);
+      const translatedDescription = isTrick ? trickDescriptions[trickKey] : null;
+      if (isTrick && !translatedDescription) {
+        console.error(`Tradução PT-BR não cadastrada para o truque "${detail.name}".`);
+      }
+      const components = (detail.components || []).map((component) => ({
+        V: "Verbal",
+        S: "Somático",
+        M: "Material",
+      })[component] || component);
+      const school = spellSchoolTranslations[normalizeSearchTerm(detail.school?.name)] || detail.school?.name;
+      document.querySelector("#detail-chips").innerHTML = [
+        `Nome original na API: ${detail.name}`,
+        detail.level === 0 ? "Truque" : `${detail.level}º círculo`,
+        isTrick && school ? `Escola: ${school}` : school,
+        isTrick ? `Conjuração: ${localizeSpellValue(detail.casting_time)}` : detail.casting_time,
+        isTrick ? `Alcance: ${localizeSpellValue(detail.range)}` : detail.range,
+        isTrick ? `Duração: ${localizeSpellValue(detail.duration)}` : detail.duration,
+        isTrick && components.length ? `Componentes: ${components.join(", ")}` : "",
+        isTrick && detail.classes?.length
+          ? `Classes: ${detail.classes.map((spellClass) => spellClassTranslations[normalizeSearchTerm(spellClass.name)] || spellClass.name).join(", ")}`
+          : "",
+      ].filter(Boolean).map((chip) => `<span class="detail-chip">${escapeHtml(chip)}</span>`).join("");
+      const material = isTrick && detail.material
+        ? `<p><strong>Material:</strong> ${escapeHtml(trickMaterialTranslations[trickKey] || detail.material)}</p>`
+        : "";
+      const description = translatedDescription || detail.desc || [];
+      const translationNotice = isTrick && !translatedDescription
+        ? `<p class="is-error">A tradução deste truque ainda não está disponível; o texto original da API é exibido abaixo.</p><h3>Descrição original</h3>`
+        : "";
+      body.innerHTML = `${translationNotice}${(description).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}${material}${detail.higher_level?.length ? `<h3>Em círculos superiores</h3>${detail.higher_level.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}` : ""}`;
+    } else {
+      const armor = Array.isArray(detail.armor_class)
+        ? detail.armor_class.map((entry) => `${entry.value}${entry.type ? ` (${entry.type})` : ""}`).join(", ")
+        : detail.armor_class ?? "—";
+      const challengeRating = detail.challenge_rating ?? detail.cr ?? "—";
+      document.querySelector("#detail-chips").innerHTML = [
+        `Nome original: ${detail.name}`,
+        detail.size,
+        detail.type ? getLocalizedMonsterType(detail.type) : "",
+        detail.alignment,
+        `ND ${challengeRating}`,
+        detail.document__title,
+      ].filter(Boolean).map((chip) => `<span class="detail-chip">${escapeHtml(chip)}</span>`).join("");
+      const abilities = [
+        ["strength", "FOR"],
+        ["dexterity", "DES"],
+        ["constitution", "CON"],
+        ["intelligence", "INT"],
+        ["wisdom", "SAB"],
+        ["charisma", "CAR"],
+      ].map(([ability, abbreviation]) => `${abbreviation} ${detail[ability] ?? "—"}`).join(" · ");
+      const actionGroups = [
+        ["Habilidades", detail.special_abilities],
+        ["Ações", detail.actions],
+        ["Ações bônus", detail.bonus_actions],
+        ["Reações", detail.reactions],
+        ["Ações lendárias", detail.legendary_actions],
+      ].map(([heading, entries]) => {
+        const content = (entries || []).map((entry) => `<p><strong>${escapeHtml(entry.name)}.</strong> ${escapeHtml(entry.desc)}</p>`).join("");
+        return content ? `<h3>${heading}</h3>${content}` : "";
+      }).join("");
+      const description = detail.desc ? `<p>${escapeHtml(detail.desc)}</p>` : "";
+      const sourceUrl = getSafeExternalUrl(detail.document__url);
+      const licenseUrl = getSafeExternalUrl(detail.document__license_url);
+      const sourceLinks = [
+        sourceUrl ? `<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">Fonte ↗</a>` : "",
+        licenseUrl ? `<a href="${escapeHtml(licenseUrl)}" target="_blank" rel="noopener noreferrer">Licença ↗</a>` : "",
+      ].filter(Boolean).join(" · ");
+      body.innerHTML = `${imageMarkup}${description}<p><strong>Classe de Armadura:</strong> ${escapeHtml(armor)} · <strong>Pontos de Vida:</strong> ${escapeHtml(detail.hit_points)} (${escapeHtml(detail.hit_dice)})</p><p><strong>Deslocamento:</strong> ${escapeHtml(getLocalizedMovement(detail.speed) || "—")}</p><p><strong>Atributos:</strong> ${escapeHtml(abilities)}</p>${detail.languages ? `<p><strong>Idiomas:</strong> ${escapeHtml(detail.languages)}</p>` : ""}${actionGroups}${sourceLinks ? `<p>${sourceLinks}</p>` : ""}`;
+    }
+    document.querySelector(".dialog-source").textContent = category === "monsters" && detail.document__title
+      ? `Fonte: ${detail.document__title}${detail.document__license ? ` · ${detail.document__license}` : ""}`
+      : "Dados de referência da API D&D 5e · 2014";
+  } catch (error) {
+    console.error(`Falha ao carregar detalhes de ${category}.`, error);
+    body.textContent = "Não foi possível carregar os detalhes. Feche esta janela e tente novamente.";
+  }
+}
+
+function setupSearch(inputId, category, delay = 350) {
+  let timer;
+  document.querySelector(inputId).addEventListener("input", (event) => {
+    window.clearTimeout(timer);
+    timer = window.setTimeout(() => {
+      state[category].query = event.target.value.trim();
+      state[category].results = [];
+      if (category === "spells") loadSpells();
+      else if (category === "tricks") loadTricks();
+      else loadMonsters();
+    }, delay);
+  });
+}
+
+function renderRules() {
+  const query = normalizeSearchTerm(document.querySelector("#rules-search").value);
+  const category = document.querySelector("#rules-category").value;
+  const filteredRules = quickRules.filter((rule) => {
+    const matchesCategory = !category || rule.category === category;
+    const searchableText = normalizeSearchTerm(`${rule.title} ${rule.tags} ${rule.summary}`);
+    return matchesCategory && searchableText.includes(query);
+  });
+  document.querySelector("#rules-list").innerHTML = filteredRules.map((rule) => `
+    <article class="rule-card">
+      <span class="rule-category">${escapeHtml({
+        testes: "TESTES",
+        combate: "COMBATE",
+        magia: "MAGIA",
+        exploracao: "EXPLORAÇÃO",
+      }[rule.category])}</span>
+      <h2>${escapeHtml(rule.title)}</h2>
+      <p>${escapeHtml(rule.summary)}</p>
+    </article>`).join("");
+  document.querySelector("#rules-count").textContent = `${filteredRules.length} ${filteredRules.length === 1 ? "regra" : "regras"}`;
+  document.querySelector("#rules-feedback").textContent = filteredRules.length
+    ? ""
+    : "Nenhuma regra encontrada. Tente outra palavra.";
+}
+
+async function searchInitiativeSpells(query) {
+  const requestId = ++state.initiativeSpells.requestId;
+  const listbox = document.querySelector("#initiative-spell-suggestions");
+  const status = document.querySelector("#initiative-spell-status");
+  if (!listbox) return;
+
+  const normalizedQuery = normalizeSearchTerm(query);
+  if (normalizedQuery.length < 2) {
+    state.initiativeSpells.results = [];
+    listbox.innerHTML = "";
+    listbox.hidden = true;
+    document.querySelector("#initiative-spell-search").setAttribute("aria-expanded", "false");
+    status.textContent = "Digite pelo menos 2 letras para buscar magias e truques.";
+    return;
+  }
+
+  status.textContent = "Buscando no compêndio...";
+  listbox.hidden = true;
+  try {
+    if (!state.initiativeSpells.catalog || !state.initiativeSpells.trickNames) {
+      const [spellData, trickData] = await Promise.all([
+        requestApi("/spells"),
+        requestApi("/spells?level=0"),
+      ]);
+      state.initiativeSpells.catalog = spellData.results;
+      state.initiativeSpells.trickNames = new Set(trickData.results.map((spell) => normalizeSearchTerm(spell.name)));
+    }
+    if (requestId !== state.initiativeSpells.requestId) return;
+
+    state.initiativeSpells.results = state.initiativeSpells.catalog
+      .filter((spell) => {
+        const aliases = spellTranslations[normalizeSearchTerm(spell.name)] || [];
+        return [spell.name, ...aliases].some((name) => {
+          const normalizedName = normalizeSearchTerm(name);
+          return normalizedName.includes(normalizedQuery)
+            || normalizedQuery.split(/\s+/).every((term) => normalizedName.includes(term));
+        });
+      })
+      .map((spell) => ({
+        ...spell,
+        category: state.initiativeSpells.trickNames.has(normalizeSearchTerm(spell.name)) ? "tricks" : "spells",
+      }))
+      .slice(0, 12);
+    listbox.innerHTML = state.initiativeSpells.results.map((spell, index) => `
+      <button class="spell-suggestion" type="button" role="option" data-resource="${spell.category}" data-index="${index}">
+        <span class="spell-suggestion-copy"><strong>${escapeHtml(getLocalizedName(spell.name, spellTranslations))}</strong><small>${escapeHtml(spell.name)}</small></span>
+        <span class="suggestion-level">${spell.category === "tricks" ? "Truque" : "Magia"}</span>
+      </button>`).join("");
+
+    listbox.hidden = state.initiativeSpells.results.length === 0;
+    document.querySelector("#initiative-spell-search").setAttribute("aria-expanded", String(!listbox.hidden));
+    status.textContent = state.initiativeSpells.results.length
+      ? `${state.initiativeSpells.results.length} resultado(s). Selecione para abrir a ficha.`
+      : "Nenhuma magia ou truque encontrado. Tente o nome em português ou inglês.";
+  } catch (error) {
+    if (requestId !== state.initiativeSpells.requestId) return;
+    console.error("Falha ao buscar magias para a iniciativa.", error);
+    state.initiativeSpells.results = [];
+    listbox.innerHTML = "";
+    listbox.hidden = true;
+    document.querySelector("#initiative-spell-search").setAttribute("aria-expanded", "false");
+    status.textContent = "Não foi possível consultar o compêndio. Verifique sua conexão e tente novamente.";
+  }
+}
+
+function renderInitiative() {
+  const list = document.querySelector("#initiative-list");
+  const empty = document.querySelector("#initiative-empty");
+  document.querySelector("#round-number").textContent = String(state.round).padStart(2, "0");
+  empty.hidden = state.combatants.length > 0;
+  const orderedCombatants = [...state.combatants].sort((a, b) => b.score - a.score);
+  if (!orderedCombatants.some((combatant) => combatant.id === state.currentCombatantId)) {
+    state.currentCombatantId = orderedCombatants[0]?.id || null;
+  }
+  list.innerHTML = orderedCombatants
+    .map((combatant, index) => `
+      <div class="combatant-row ${combatant.id === state.currentCombatantId ? "is-current" : ""}">
+        <span class="turn-index">${String(index + 1).padStart(2, "0")}</span>
+        <span class="combatant-name-wrap">
+          ${combatant.monster
+              ? `<span class="combatant-name-with-image"><button class="combatant-name creature-name" type="button" aria-describedby="creature-tip-${escapeHtml(combatant.id)}">${escapeHtml(combatant.name)}</button>${getMonsterImageUrl(combatant.monster) ? `<button class="monster-image-button" type="button" data-image-preview data-image-url="${escapeHtml(getMonsterImageUrl(combatant.monster))}" data-image-alt="Imagem de ${escapeHtml(combatant.name)}" aria-label="Ampliar imagem de ${escapeHtml(combatant.name)}" title="Ampliar imagem">▧</button>` : ""}</span>${buildMonsterTooltip(combatant.monster, `creature-tip-${escapeHtml(combatant.id)}`)}`
+            : `<span class="combatant-name">${escapeHtml(combatant.name)}</span>`}
+        </span>
+        <span class="combatant-score">⚔ ${escapeHtml(combatant.score)} iniciativa</span>
+        <label class="combatant-hp-control"><input class="combatant-hp-input" type="number" min="0" max="${combatant.maxHp || 9999}" value="${escapeHtml(combatant.hp)}" data-hp-for="${escapeHtml(combatant.id)}" aria-label="Pontos de vida atuais de ${escapeHtml(combatant.name)}" /><span>${combatant.maxHp ? `/ ${escapeHtml(combatant.maxHp)}` : ""} PV</span></label>
+        <span class="combatant-ac">${combatant.ac === "" || combatant.ac == null ? "— CA" : `CA ${escapeHtml(combatant.ac)}`}</span>
+        <button class="icon-button remove-combatant" type="button" data-remove="${escapeHtml(combatant.id)}" aria-label="Remover ${escapeHtml(combatant.name)}">×</button>
+      </div>`).join("");
+}
+
+function renderNote() {
+  document.querySelector("#notes-title").value = state.note.title;
+  document.querySelector("#notes-content").value = state.note.content;
+}
+
+function renderCampaigns() {
+  const container = document.querySelector("#campaign-list");
+  document.querySelector("#campaign-count").textContent = String(state.campaigns.length);
+  container.querySelectorAll("[data-custom-campaign]").forEach((card) => card.remove());
+  const insertBefore = container.querySelector("#new-campaign-card");
+  state.campaigns.forEach((campaign) => {
+    insertBefore.insertAdjacentHTML("beforebegin", `
+      <article class="campaign-card" data-custom-campaign="${escapeHtml(campaign.id)}">
+        <div class="campaign-cover campaign-cover-${escapeHtml(["mountains", "forest", "ruins", "night"].includes(campaign.background) ? campaign.background : "mountains")}" data-campaign-cover="${escapeHtml(campaign.id)}"><span>✧</span><small>CAMPANHA</small></div>
+        <div class="campaign-card-body"><div class="campaign-title-row"><div><h2>${escapeHtml(campaign.name)}</h2><p>${escapeHtml(campaign.description || "Uma nova história começa a ser escrita.")}</p></div><button class="icon-button campaign-edit-icon" type="button" data-edit-campaign="${escapeHtml(campaign.id)}" aria-label="Editar ${escapeHtml(campaign.name)}">···</button></div><div class="campaign-card-meta"><span>◷ Campanha pronta para jogar</span></div><button class="button button-outline campaign-open" type="button" data-open-campaign="${escapeHtml(campaign.id)}">Abrir campanha <span>→</span></button></div>
+      </article>`);
+    const cover = container.querySelector(`[data-campaign-cover="${CSS.escape(campaign.id)}"]`);
+    const imageUrl = getSafeExternalUrl(campaign.imageUrl);
+    if (cover && campaign.background === "custom" && imageUrl) cover.style.backgroundImage = `linear-gradient(0deg, #11131bcc, #11131b33), url("${imageUrl}")`;
+  });
+  renderDashboardCampaign();
+}
+
+function getActiveCampaign() {
+  return state.campaigns.find((campaign) => campaign.id === state.activeCampaignId)
+    || state.campaigns[0]
+    || null;
+}
+
+function renderDashboardCampaign() {
+  const campaign = getActiveCampaign();
+  const name = campaign?.name || "Nenhuma campanha aberta";
+  const description = campaign?.description || (campaign
+    ? "Uma nova história começa a ser escrita."
+    : "Abra ou crie uma campanha para acompanhar seus detalhes aqui.");
+  const banner = document.querySelector("#dashboard-campaign-banner");
+  const imageUrl = campaign?.background === "custom" ? getSafeExternalUrl(campaign.imageUrl) : "";
+
+  document.querySelector("#dashboard-campaign-name").textContent = name;
+  document.querySelector("#dashboard-campaign-description").textContent = description;
+  document.querySelector("#dashboard-campaign-meta").innerHTML = campaign
+    ? "<span>◷ &nbsp;Campanha ativa</span>"
+    : "<span>＋ &nbsp;Crie sua primeira campanha</span>";
+  document.querySelector("#dashboard-active-name").textContent = name;
+  document.querySelector("#dashboard-active-description").textContent = description;
+  document.querySelector("#dashboard-activity-name").textContent = name;
+  document.querySelector("#dashboard-activity-description").textContent = campaign
+    ? "Última campanha aberta"
+    : "Escolha uma campanha para continuar.";
+  document.querySelector("#dashboard-open-campaign").disabled = !campaign;
+  document.querySelectorAll("[data-open-active-campaign]").forEach((button) => {
+    button.disabled = !campaign;
+  });
+
+  banner.dataset.background = imageUrl ? "custom" : campaign?.background || "mountains";
+  banner.style.backgroundImage = imageUrl
+    ? `linear-gradient(100deg, #151519e8 0%, #17171bd9 55%, #17191ecc 100%), url("${imageUrl}")`
+    : "";
+  document.querySelector("#dashboard-banner-art").hidden = Boolean(imageUrl);
+}
+
+function setActiveCampaign(campaign) {
+  state.activeCampaignId = campaign?.id || null;
+  try {
+    if (state.activeCampaignId) localStorage.setItem("cronica-active-campaign", state.activeCampaignId);
+    else localStorage.removeItem("cronica-active-campaign");
+  } catch (error) {
+    console.error("Não foi possível salvar a campanha ativa.", error);
+    showToast("A campanha foi aberta, mas não foi possível salvar sua seleção neste navegador.");
+  }
+  renderDashboardCampaign();
+}
+
+function openCampaign(campaign) {
+  setActiveCampaign(campaign);
+  navigate("initiative");
+  showToast(`Campanha “${campaign.name}” aberta. A iniciativa está pronta para a sessão.`);
+}
+
+function openCampaignEditor(campaign = null) {
+  const dialog = document.querySelector("#campaign-editor");
+  const form = document.querySelector("#campaign-editor-form");
+  form.reset();
+  state.editingCampaignId = campaign?.id || null;
+  document.querySelector("#campaign-editor-title").textContent = campaign ? "Editar campanha" : "Nova campanha";
+  document.querySelector("#campaign-name").value = campaign?.name || "";
+  document.querySelector("#campaign-description").value = campaign?.description || "";
+  document.querySelector("#campaign-background").value = campaign?.background || "mountains";
+  document.querySelector("#campaign-image-url").value = campaign?.imageUrl || "";
+  document.querySelector("#delete-editing-campaign").hidden = !campaign;
+  updateCampaignImageField();
+  dialog.showModal();
+}
+
+function updateCampaignImageField() {
+  const custom = document.querySelector("#campaign-background").value === "custom";
+  document.querySelector("#campaign-image-field").hidden = !custom;
+  document.querySelector("#campaign-image-url").required = custom;
+}
+
+function setupEvents() {
+  document.querySelectorAll("[data-view], [data-go]").forEach((element) => {
+    element.addEventListener("click", (event) => {
+      if (element instanceof HTMLAnchorElement) event.preventDefault();
+      navigate(element.dataset.view || element.dataset.go);
+    });
+  });
+  window.addEventListener("hashchange", () => {
+    const requestedView = window.location.hash.slice(1);
+    const viewName = requestedView === "inicio" ? "dashboard" : requestedView;
+    navigate(viewName, { updateHistory: false });
+    if (!labels[requestedView] || requestedView !== viewName) {
+      window.history.replaceState(null, "", `#${labels[viewName] ? viewName : "dashboard"}`);
+    }
+  });
+  document.querySelector("#global-search").addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && event.currentTarget.value.trim()) {
+      const query = event.currentTarget.value.trim();
+      navigate("spells");
+      document.querySelector("#spell-search").value = query;
+      state.spells.query = query;
+      state.spells.level = "";
+      document.querySelector("#spell-level").value = "";
+      state.spells.results = [];
+      loadSpells();
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "/" && !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)) {
+      event.preventDefault();
+      document.querySelector("#global-search").focus();
+    }
+  });
+  setupSearch("#spell-search", "spells");
+  setupSearch("#trick-search", "tricks");
+  setupSearch("#monster-search", "monsters");
+  document.querySelector("#monster-source").addEventListener("change", (event) => {
+    state.monsters.provider = event.target.value;
+    state.monsters.results = [];
+    state.monsters.next = null;
+    document.querySelector("#monster-document-filter").hidden = state.monsters.provider !== "open5e";
+    if (state.monsters.provider === "open5e") loadOpen5eDocuments();
+    loadMonsters();
+  });
+  document.querySelector("#monster-document").addEventListener("change", (event) => {
+    state.monsters.documentSlug = event.target.value;
+    state.monsters.results = [];
+    state.monsters.next = null;
+    loadMonsters();
+  });
+  document.querySelector("#rules-search").addEventListener("input", renderRules);
+  document.querySelector("#rules-category").addEventListener("change", renderRules);
+
+  const initSpellSearch = document.querySelector("#initiative-spell-search");
+  if (initSpellSearch) {
+    let spellSearchTimer;
+    initSpellSearch.addEventListener("input", (event) => {
+      window.clearTimeout(spellSearchTimer);
+      spellSearchTimer = window.setTimeout(
+        () => searchInitiativeSpells(event.target.value),
+        300,
+      );
+    });
+  }
+
+  const initSpellSuggestions = document.querySelector("#initiative-spell-suggestions");
+  if (initSpellSuggestions) {
+    initSpellSuggestions.addEventListener("click", (event) => {
+      const option = event.target.closest("[data-index]");
+      if (!option) return;
+      const index = Number(option.dataset.index);
+      const resource = state.initiativeSpells.results[index];
+      if (!resource) return;
+      showResourceDetails(resource.category, index, resource);
+      initSpellSuggestions.hidden = true;
+      initSpellSearch?.setAttribute("aria-expanded", "false");
+    });
+  }
+  initSpellSearch?.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      initSpellSuggestions.hidden = true;
+      initSpellSearch.setAttribute("aria-expanded", "false");
+    }
+    if (["ArrowDown", "ArrowUp"].includes(event.key) && !initSpellSuggestions.hidden) {
+      const options = [...initSpellSuggestions.querySelectorAll("[data-index]")];
+      if (!options.length) return;
+      event.preventDefault();
+      const currentIndex = options.findIndex((option) => option.getAttribute("aria-selected") === "true");
+      const delta = event.key === "ArrowDown" ? 1 : -1;
+      const nextIndex = (currentIndex + delta + options.length) % options.length;
+      options.forEach((option, index) => option.setAttribute("aria-selected", String(index === nextIndex)));
+    }
+    if (event.key === "Enter" && !initSpellSuggestions.hidden) {
+      const selectedResult = initSpellSuggestions.querySelector('[aria-selected="true"]')
+        || initSpellSuggestions.querySelector("[data-index]");
+      if (!selectedResult) return;
+      event.preventDefault();
+      selectedResult.click();
+    }
+  });
+  initSpellSearch?.addEventListener("focus", () => {
+    if (state.initiativeSpells.results.length) {
+      initSpellSuggestions.hidden = false;
+      initSpellSearch.setAttribute("aria-expanded", "true");
+    }
+  });
+
+  let initiativeSearchTimer;
+  let activeCreatureSuggestion = -1;
+  const creatureNameInput = document.querySelector("#combatant-name");
+  const creatureSuggestions = document.querySelector("#creature-suggestions");
+  creatureNameInput.addEventListener("input", () => {
+    const selected = state.initiative.selectedMonster;
+    const currentName = normalizeSearchTerm(creatureNameInput.value);
+    if (selected && ![selected.name, getLocalizedMonsterName(selected.name)].some((name) => normalizeSearchTerm(name) === currentName)) {
+      state.initiative.selectedMonster = null;
+      document.querySelector("#combatant-hp").value = "";
+      document.querySelector("#combatant-ac").value = "";
+      setMonsterImageButton(document.querySelector("#selected-creature-image"), "", "");
+    }
+    activeCreatureSuggestion = -1;
+    window.clearTimeout(initiativeSearchTimer);
+    initiativeSearchTimer = window.setTimeout(
+      () => searchInitiativeCreatures(creatureNameInput.value),
+      300,
+    );
+  });
+  creatureNameInput.addEventListener("keydown", async (event) => {
+    if (creatureSuggestions.hidden || !state.initiative.creatures.length) return;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const offset = event.key === "ArrowDown" ? 1 : -1;
+      activeCreatureSuggestion = (activeCreatureSuggestion + offset + state.initiative.creatures.length) % state.initiative.creatures.length;
+      creatureSuggestions.querySelectorAll(".creature-suggestion").forEach((option, index) => {
+        option.setAttribute("aria-selected", String(index === activeCreatureSuggestion));
+      });
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      const index = activeCreatureSuggestion < 0 ? 0 : activeCreatureSuggestion;
+      await selectInitiativeCreature(state.initiative.creatures[index]);
+    } else if (event.key === "Escape") {
+      renderCreatureSuggestions([]);
+    }
+  });
+  creatureSuggestions.addEventListener("mousedown", (event) => event.preventDefault());
+  creatureSuggestions.addEventListener("click", async (event) => {
+    const option = event.target.closest("[data-creature-index]");
+    if (!option) return;
+    await selectInitiativeCreature(state.initiative.creatures[Number(option.dataset.creatureIndex)]);
+  });
+  document.addEventListener("pointerdown", (event) => {
+    if (!event.target.closest(".creature-search-field")) renderCreatureSuggestions([]);
+    if (!event.target.closest(".quick-spell-search")) {
+      const listbox = document.querySelector("#initiative-spell-suggestions");
+      if (listbox) {
+        listbox.hidden = true;
+        document.querySelector("#initiative-spell-search").setAttribute("aria-expanded", "false");
+      }
+    }
+  });
+  document.querySelector("#spell-level").addEventListener("change", (event) => {
+    state.spells.level = event.target.value;
+    state.spells.results = [];
+    loadSpells();
+  });
+  document.querySelector("#spell-more").addEventListener("click", () => {
+    state.spells.visibleCount += PAGE_SIZE;
+    renderSpells();
+    document.querySelector("#spell-count").textContent = `${Math.min(state.spells.visibleCount, state.spells.results.length)} de ${state.spells.results.length} magias`;
+    document.querySelector("#spell-more").hidden = state.spells.results.length <= state.spells.visibleCount;
+  });
+  document.querySelector("#trick-more").addEventListener("click", () => {
+    state.tricks.visibleCount += PAGE_SIZE;
+    renderTricks();
+    document.querySelector("#trick-count").textContent = `${Math.min(state.tricks.visibleCount, state.tricks.results.length)} de ${state.tricks.results.length} truques`;
+    document.querySelector("#trick-more").hidden = state.tricks.results.length <= state.tricks.visibleCount;
+  });
+  document.querySelector("#monster-more").addEventListener("click", () => {
+    if (state.monsters.provider === "open5e") {
+      loadMonsters({ append: true });
+      return;
+    }
+    state.monsters.visibleCount += PAGE_SIZE;
+    renderMonsters();
+    loadVisibleMonsterImages(++state.monsters.requestId);
+    document.querySelector("#monster-count").textContent = `${Math.min(state.monsters.visibleCount, state.monsters.results.length)} de ${state.monsters.results.length} criaturas`;
+    document.querySelector("#monster-more").hidden = state.monsters.results.length <= state.monsters.visibleCount;
+  });
+  document.querySelector("#spell-list").addEventListener("click", (event) => {
+    const card = event.target.closest("[data-resource]");
+    if (card) showResourceDetails(card.dataset.resource, Number(card.dataset.index));
+  });
+  document.querySelector("#trick-list").addEventListener("click", (event) => {
+    const card = event.target.closest("[data-resource]");
+    if (card) showResourceDetails(card.dataset.resource, Number(card.dataset.index));
+  });
+  document.querySelector("#monster-list").addEventListener("click", (event) => {
+    const card = event.target.closest("[data-resource]");
+    if (card) showResourceDetails(card.dataset.resource, Number(card.dataset.index));
+  });
+  document.addEventListener("click", (event) => {
+    const previewButton = event.target.closest("[data-image-preview]");
+    if (!previewButton || previewButton.hidden) return;
+    showMonsterImage(previewButton.dataset.imageUrl, previewButton.dataset.imageAlt || "Imagem da criatura");
+  });
+  document.querySelector(".dialog-close").addEventListener("click", () => document.querySelector("#detail-dialog").close());
+  document.querySelector("#monster-image-close").addEventListener("click", () => document.querySelector("#monster-image-dialog").close());
+  document.querySelector("#monster-image-preview").addEventListener("error", () => {
+    document.querySelector("#monster-image-status").textContent = "A API informou uma imagem, mas ela não pôde ser carregada.";
+  });
+  document.querySelector("#monster-image-dialog").addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) event.currentTarget.close();
+  });
+  document.querySelector("#initiative-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const combatant = {
+      id: crypto.randomUUID(),
+      name: String(formData.get("name")).trim(),
+      score: Number(formData.get("score")),
+      hp: String(formData.get("hp") || ""),
+      maxHp: state.initiative.selectedMonster?.hit_points ?? null,
+      ac: String(formData.get("ac") || ""),
+      monster: state.initiative.selectedMonster,
+    };
+    if (!combatant.name || !Number.isFinite(combatant.score)) return;
+    state.combatants.push(combatant);
+    if (!state.currentCombatantId) state.currentCombatantId = combatant.id;
+    if (saveStored("cronica-combatants", state.combatants)) {
+      localStorage.setItem("cronica-current-combatant", state.currentCombatantId);
+      event.currentTarget.reset();
+      state.initiative.selectedMonster = null;
+      state.initiative.creatures = [];
+      renderCreatureSuggestions([]);
+      document.querySelector("#creature-search-status").textContent = "Digite para buscar criaturas do SRD 2014 e Open5e.";
+      renderInitiative();
+    }
+  });
+  document.querySelector("#roll-initiative").addEventListener("click", () => {
+    const dexterityValue = state.initiative.selectedMonster?.dexterity;
+    const hasDexterity = dexterityValue !== null && dexterityValue !== undefined && Number.isFinite(Number(dexterityValue));
+    const modifier = hasDexterity ? Math.floor((Number(dexterityValue) - 10) / 2) : 0;
+    const roll = Math.floor(Math.random() * 20) + 1;
+    document.querySelector("#combatant-score").value = String(roll + modifier);
+    if (hasDexterity) {
+      showToast(`Iniciativa: ${roll} no d20 ${modifier >= 0 ? "+" : "−"} ${Math.abs(modifier)} de Destreza.`);
+    } else if (state.initiative.selectedMonster) {
+      showToast(`Iniciativa: ${roll} no d20. A ficha não informou Destreza para aplicar o modificador.`);
+    } else {
+      showToast("Iniciativa rolada sem modificador. Selecione uma criatura para somar a Destreza.");
+    }
+  });
+  document.querySelector("#initiative-list").addEventListener("click", (event) => {
+    const removeButton = event.target.closest("[data-remove]");
+    if (!removeButton) return;
+    state.combatants = state.combatants.filter((combatant) => combatant.id !== removeButton.dataset.remove);
+    if (state.currentCombatantId === removeButton.dataset.remove) state.currentCombatantId = null;
+    saveStored("cronica-combatants", state.combatants);
+    if (state.currentCombatantId) localStorage.setItem("cronica-current-combatant", state.currentCombatantId);
+    else localStorage.removeItem("cronica-current-combatant");
+    renderInitiative();
+  });
+  document.querySelector("#initiative-list").addEventListener("change", (event) => {
+    const hpInput = event.target.closest("[data-hp-for]");
+    if (!hpInput) return;
+    const combatant = state.combatants.find((item) => item.id === hpInput.dataset.hpFor);
+    const hp = Number(hpInput.value);
+    if (!combatant || !Number.isInteger(hp) || hp < 0 || hp > (combatant.maxHp || 9999)) {
+      hpInput.value = combatant?.hp ?? "";
+      showToast("Informe pontos de vida dentro do limite permitido.");
+      return;
+    }
+    combatant.hp = String(hp);
+    saveStored("cronica-combatants", state.combatants);
+    renderInitiative();
+  });
+  document.querySelector("#next-turn").addEventListener("click", () => {
+    if (!state.combatants.length) {
+      showToast("Adicione combatentes antes de avançar o turno.");
+      return;
+    }
+    const sorted = [...state.combatants].sort((a, b) => b.score - a.score);
+    const currentIndex = Math.max(0, sorted.findIndex((combatant) => combatant.id === state.currentCombatantId));
+    const nextIndex = (currentIndex + 1) % sorted.length;
+    state.currentCombatantId = sorted[nextIndex].id;
+    if (nextIndex === 0) state.round += 1;
+    saveStored("cronica-combatants", state.combatants);
+    localStorage.setItem("cronica-round", String(state.round));
+    localStorage.setItem("cronica-current-combatant", state.currentCombatantId);
+    renderInitiative();
+  });
+  document.querySelector("#reset-initiative").addEventListener("click", () => {
+    state.round = 1;
+    state.currentCombatantId = [...state.combatants].sort((a, b) => b.score - a.score)[0]?.id || null;
+    localStorage.setItem("cronica-round", "1");
+    if (state.currentCombatantId) localStorage.setItem("cronica-current-combatant", state.currentCombatantId);
+    else localStorage.removeItem("cronica-current-combatant");
+    renderInitiative();
+    showToast("Rodada reiniciada.");
+  });
+  document.querySelector("#save-note").addEventListener("click", () => {
+    state.note = {
+      title: document.querySelector("#notes-title").value.trim(),
+      content: document.querySelector("#notes-content").value,
+    };
+    if (saveStored("cronica-note", state.note)) {
+      document.querySelector("#notes-status").textContent = "Anotação salva neste navegador";
+      showToast("Anotação salva.");
+    }
+  });
+  document.querySelectorAll("#notes-title, #notes-content").forEach((field) => field.addEventListener("input", () => {
+    document.querySelector("#notes-status").textContent = "Alterações não salvas";
+  }));
+  document.querySelectorAll("#new-campaign, #new-campaign-card").forEach((button) => button.addEventListener("click", () => openCampaignEditor()));
+  document.querySelector("#campaign-background").addEventListener("change", updateCampaignImageField);
+  document.querySelector("#campaign-editor-close").addEventListener("click", () => document.querySelector("#campaign-editor").close());
+  document.querySelector("#cancel-campaign-edit").addEventListener("click", () => document.querySelector("#campaign-editor").close());
+  document.querySelector("#campaign-editor").addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) event.currentTarget.close();
+  });
+  document.querySelectorAll("[data-open-active-campaign]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const campaign = getActiveCampaign();
+      if (campaign) openCampaign(campaign);
+      else navigate("campaigns");
+    });
+  });
+  document.querySelector("#campaign-editor-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const name = String(formData.get("name")).trim();
+    const background = String(formData.get("background"));
+    const rawImageUrl = String(formData.get("imageUrl") || "").trim();
+    const imageUrl = background === "custom" ? getSafeExternalUrl(rawImageUrl) : "";
+    if (background === "custom" && (!imageUrl || new URL(imageUrl).protocol !== "https:")) {
+      showToast("Informe uma URL de imagem HTTPS válida.");
+      return;
+    }
+    const campaignData = {
+      name,
+      description: String(formData.get("description") || "").trim(),
+      background,
+      imageUrl,
+    };
+    const existingIndex = state.campaigns.findIndex((campaign) => campaign.id === state.editingCampaignId);
+    if (existingIndex >= 0) state.campaigns[existingIndex] = { ...state.campaigns[existingIndex], ...campaignData };
+    else state.campaigns.push({ id: crypto.randomUUID(), ...campaignData });
+    if (saveStored("cronica-campaigns", state.campaigns)) {
+      renderCampaigns();
+      document.querySelector("#campaign-editor").close();
+      showToast(existingIndex >= 0 ? "Campanha atualizada." : `Campanha “${name}” criada.`);
+    }
+  });
+  document.querySelector("#delete-editing-campaign").addEventListener("click", () => {
+    const campaign = state.campaigns.find((item) => item.id === state.editingCampaignId);
+    if (!campaign || !window.confirm(`Excluir a campanha “${campaign.name}”?`)) return;
+    const wasActive = state.activeCampaignId === campaign.id;
+    state.campaigns = state.campaigns.filter((item) => item.id !== campaign.id);
+    if (saveStored("cronica-campaigns", state.campaigns)) {
+      if (wasActive) setActiveCampaign(state.campaigns[0] || null);
+      renderCampaigns();
+      document.querySelector("#campaign-editor").close();
+      showToast("Campanha excluída.");
+    }
+  });
+  document.querySelector("#campaign-list").addEventListener("click", (event) => {
+    const editButton = event.target.closest("[data-edit-campaign]");
+    if (editButton) {
+      const campaign = state.campaigns.find((item) => item.id === editButton.dataset.editCampaign);
+      if (campaign) openCampaignEditor(campaign);
+      return;
+    }
+    const campaignButton = event.target.closest("[data-open-campaign]");
+    if (campaignButton) {
+      const campaign = state.campaigns.find((item) => item.id === campaignButton.dataset.openCampaign);
+      if (campaign) openCampaign(campaign);
+    }
+  });
+}
+
+document.querySelector("#today-label").textContent = new Date()
+  .toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })
+  .toLocaleUpperCase("pt-BR");
+setupEvents();
+renderInitiative();
+renderCampaigns();
+const initialRoute = window.location.hash.slice(1);
+const initialView = initialRoute === "inicio" ? "dashboard" : initialRoute;
+navigate(initialView, { updateHistory: false, scroll: false });
+if (!labels[initialRoute] || initialRoute !== initialView) {
+  window.history.replaceState(null, "", `#${labels[initialView] ? initialView : "dashboard"}`);
+}
