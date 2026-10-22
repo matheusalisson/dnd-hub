@@ -453,3 +453,33 @@ kbd { font-size: 11px; }
 .spell-suggestion strong { overflow: hidden; color: #eeeae4; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .spell-suggestion small { overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .suggestion-level { flex: 0 0 auto; padding: 4px 7px; border: 1px solid #4c4231; border-radius: 4px; background: #262219; color: var(--gold-strong); font-size: 10px; }
+
+/* Ferramentas, anotações, backup, condições e PV rápido */
+.tool-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; }
+.tool-row .input-hint { flex-basis: 100%; }
+.page-heading-row > .tool-row { margin-top: 0; }
+.notes-layout { display: grid; grid-template-columns: minmax(200px, 270px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.notes-layout .notes-panel { max-width: none; }
+.notes-sidebar { display: grid; gap: 10px; padding: 14px; }
+.notes-list { display: grid; gap: 6px; max-height: 420px; overflow: auto; }
+.note-item { display: grid; gap: 3px; padding: 9px 10px; border: 1px solid #2b2c35; border-radius: 6px; background: #17181e; color: var(--text); font: inherit; font-size: 11px; text-align: left; cursor: pointer; }
+.note-item small { color: #8d8d97; font-size: 9px; }
+.note-item.is-active { border-color: #514630; background: #252219; }
+.notes-empty { margin: 0; color: #8d8d97; font-size: 10px; }
+.notes-panel select.notes-title { margin-bottom: 18px; }
+.notes-actions { display: flex; align-items: center; gap: 12px; }
+.backup-panel { display: grid; gap: 12px; justify-items: start; max-width: 640px; padding: 22px; }
+.backup-panel h2 { margin: 6px 0 0; font-size: 15px; }
+.backup-panel p { margin: 0; color: #a1a1aa; font-size: 11px; line-height: 1.6; }
+.combatant-row.is-down { opacity: .6; }
+.combatant-extras { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 0 9px; }
+.hp-quick { display: flex; gap: 4px; }
+.hp-quick-input { width: 74px; padding: 5px 6px; border: 1px solid #33343d; border-radius: 5px; background: #121319; color: var(--text); font-size: 10px; }
+.mini-button { padding: 5px 8px; border: 1px solid #33343d; border-radius: 5px; background: #17181e; color: #c9c8cd; font: inherit; font-size: 10px; cursor: pointer; }
+.mini-button:hover { border-color: #514630; color: var(--gold-strong); }
+.condition-chip { padding: 4px 8px; border: 1px solid #514630; border-radius: 999px; background: #252219; color: #ead5a9; font: inherit; font-size: 10px; cursor: pointer; }
+.condition-add { padding: 5px 6px; border: 1px solid #33343d; border-radius: 5px; background: #121319; color: #c9c8cd; font-size: 10px; }
+@media (max-width: 760px) {
+  .notes-layout { grid-template-columns: 1fr; }
+  .page-heading-row > .tool-row { width: 100%; }
+}

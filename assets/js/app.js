@@ -20,7 +20,11 @@ const state = {
   editingCampaignId: null,
   round: Number(localStorage.getItem("cronica-round")) || 1,
   currentCombatantId: localStorage.getItem("cronica-current-combatant") || null,
-  note: loadStored("cronica-note", { title: "", content: "" }),
+  notes: loadNotes(),
+  activeNoteId: null,
+  notesFilter: "all",
+  notesDirty: false,
+  customCreatures: loadCustomCreatures(),
   initiativeSpells: { catalog: null, trickNames: null, results: [], requestId: 0 },
 };
 
@@ -826,6 +830,25 @@ const labels = {
   dashboard: "Visão geral",
   initiative: "Iniciativa",
   notes: "Anotações",
+  backup: "Dados e backup",
+};
+
+const conditionDefs = {
+  blinded: ["Cego", "Não enxerga e falha em testes que dependem da visão. Ataques contra ele têm vantagem; os ataques dele têm desvantagem."],
+  charmed: ["Enfeitiçado", "Não pode atacar quem o enfeitiçou. Quem o enfeitiçou tem vantagem em interações sociais com ele."],
+  deafened: ["Surdo", "Não ouve e falha em testes que dependem da audição."],
+  frightened: ["Amedrontado", "Desvantagem em testes e ataques enquanto vir a fonte do medo; não pode se aproximar dela voluntariamente."],
+  grappled: ["Agarrado", "Deslocamento 0. Termina se o agarrador ficar incapacitado ou se a criatura for afastada."],
+  incapacitated: ["Incapacitado", "Não pode realizar ações nem reações."],
+  invisible: ["Invisível", "Ataques contra ele têm desvantagem; os ataques dele têm vantagem."],
+  paralyzed: ["Paralisado", "Incapacitado, sem se mover ou falar. Falha em salvaguardas de FOR e DES; ataques corpo a corpo a até 1,5 m são críticos."],
+  petrified: ["Petrificado", "Transformado em pedra: incapacitado, resistente a todo dano e imune a veneno e doenças."],
+  poisoned: ["Envenenado", "Desvantagem em jogadas de ataque e testes de atributo."],
+  prone: ["Caído", "Só rasteja. Ataques corpo a corpo contra ele têm vantagem; à distância, desvantagem. Ele tem desvantagem nos ataques."],
+  restrained: ["Contido", "Deslocamento 0. Ataques contra ele têm vantagem; os dele e suas salvaguardas de DES têm desvantagem."],
+  stunned: ["Atordoado", "Incapacitado, sem se mover e só fala com dificuldade. Falha em salvaguardas de FOR e DES; ataques contra ele têm vantagem."],
+  unconscious: ["Inconsciente", "Incapacitado, caído e alheio ao redor. Falha em salvaguardas de FOR e DES; ataques corpo a corpo a até 1,5 m são críticos."],
+  concentrating: ["Concentrando", "Mantém uma magia de concentração. Ao sofrer dano: salvaguarda de CON com CD 10 ou metade do dano, o que for maior."],
 };
 
 function loadStored(key, fallback) {
@@ -864,6 +887,23 @@ function loadCampaigns() {
     }
   }
   return campaigns;
+}
+
+function loadNotes() {
+  const stored = loadStored("cronica-notes", null);
+  if (Array.isArray(stored)) return stored.filter((note) => note && typeof note.id === "string");
+  const legacy = loadStored("cronica-note", null);
+  if (legacy && (legacy.title || legacy.content)) {
+    return [{ id: "legacy", title: legacy.title || "Anotação", content: legacy.content || "", campaignId: "", updatedAt: Date.now() }];
+  }
+  return [];
+}
+
+function loadCustomCreatures() {
+  const stored = loadStored("cronica-custom-creatures", []);
+  return Array.isArray(stored)
+    ? stored.filter((creature) => creature && typeof creature.name === "string").map((creature) => ({ ...creature, provider: "custom" }))
+    : [];
 }
 
 async function requestApi(path) {
@@ -1085,7 +1125,7 @@ function renderCreatureSuggestions(creatures) {
   listbox.innerHTML = creatures.map((creature, index) => `
     <button class="creature-suggestion" type="button" role="option" aria-selected="false" data-creature-index="${index}">
       <span><strong>${escapeHtml(getLocalizedMonsterName(creature.name))}</strong><small>${escapeHtml(creature.name)}</small></span>
-      <span class="suggestion-source">${escapeHtml(creature.provider === "open5e" ? creature.document__title || "Open5e" : "SRD 2014")}</span>
+      <span class="suggestion-source">${escapeHtml({ open5e: creature.document__title || "Open5e", custom: "Minhas criaturas" }[creature.provider] || "SRD 2014")}</span>
     </button>`).join("");
   listbox.hidden = creatures.length === 0;
   document.querySelector("#combatant-name").setAttribute("aria-expanded", String(creatures.length > 0));
@@ -1124,12 +1164,17 @@ async function searchInitiativeCreatures(query) {
     const open5eCreatures = open5eResult.status === "fulfilled"
       ? open5eResult.value.results.map((creature) => ({ ...creature, provider: "open5e" }))
       : [];
-    state.initiative.creatures = [...officialCreatures, ...open5eCreatures].slice(0, 12);
+    const normalizedQuery = normalizeSearchTerm(query);
+    const customCreatures = state.customCreatures.filter((creature) => (
+      normalizeSearchTerm(creature.name).includes(normalizedQuery)
+      || normalizeSearchTerm(getLocalizedMonsterName(creature.name)).includes(normalizedQuery)
+    ));
+    state.initiative.creatures = [...customCreatures, ...officialCreatures, ...open5eCreatures].slice(0, 12);
     renderCreatureSuggestions(state.initiative.creatures);
     status.textContent = state.initiative.creatures.length
       ? `${state.initiative.creatures.length} sugestão(ões) encontradas no SRD 2014 e em fontes abertas.`
       : "Nenhuma criatura encontrada; você ainda pode adicionar o nome manualmente.";
-    if (officialResult.status === "rejected" && open5eResult.status === "rejected") {
+    if (officialResult.status === "rejected" && open5eResult.status === "rejected" && !state.initiative.creatures.length) {
       status.textContent = "Busca indisponível. Você ainda pode adicionar o nome manualmente.";
     }
   } catch (error) {
@@ -1148,7 +1193,7 @@ async function selectInitiativeCreature(creature) {
   status.textContent = `Carregando ficha de ${creature.name}...`;
   renderCreatureSuggestions([]);
   try {
-    const detail = creature.provider === "open5e"
+    const detail = ["open5e", "custom"].includes(creature.provider)
       ? creature
       : await requestApi(creature.url);
     if (requestId !== state.initiative.requestId) return;
@@ -1298,7 +1343,7 @@ function navigate(viewName, { updateHistory = true, scroll = true } = {}) {
   if (viewName === "monsters" && !state.monsters.results.length) loadMonsters();
   if (viewName === "rules") renderRules();
   if (viewName === "initiative") renderInitiative();
-  if (viewName === "notes") renderNote();
+  if (viewName === "notes") renderNotes();
   if (scroll) window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -1400,9 +1445,10 @@ async function loadMonsters({ append = false } = {}) {
     document.querySelector("#monster-list").innerHTML = "";
     count.textContent = "Buscando...";
   }
-  document.querySelector("#monster-source-label").textContent = state.monsters.provider === "open5e"
-    ? "Open5e · conteúdo de fontes abertas"
-    : "D&D 5e API · regras de 2014";
+  document.querySelector("#monster-source-label").textContent = {
+    open5e: "Open5e · conteúdo de fontes abertas",
+    custom: "Minhas criaturas · salvas neste navegador",
+  }[state.monsters.provider] || "D&D 5e API · regras de 2014";
   try {
     let data;
     if (state.monsters.provider === "open5e") {
@@ -1420,6 +1466,16 @@ async function loadMonsters({ append = false } = {}) {
       state.monsters.next = data.next;
       state.monsters.total = data.count;
       state.monsters.visibleCount = state.monsters.results.length;
+    } else if (state.monsters.provider === "custom") {
+      const query = normalizeSearchTerm(state.monsters.query);
+      state.monsters.results = state.customCreatures.filter((creature) => (
+        !query
+        || normalizeSearchTerm(creature.name).includes(query)
+        || normalizeSearchTerm(getLocalizedMonsterName(creature.name)).includes(query)
+      ));
+      state.monsters.next = null;
+      state.monsters.total = state.monsters.results.length;
+      state.monsters.visibleCount = PAGE_SIZE;
     } else {
       if (!state.monsters.nameIndex) {
         data = await requestApi("/monsters");
@@ -1444,7 +1500,11 @@ async function loadMonsters({ append = false } = {}) {
     loadVisibleMonsterImages(requestId);
     const visibleCount = Math.min(state.monsters.visibleCount, state.monsters.total);
     count.textContent = `${visibleCount} de ${state.monsters.total} ${state.monsters.total === 1 ? "criatura" : "criaturas"}`;
-    feedback.textContent = state.monsters.results.length ? "" : "Nenhuma criatura encontrada. Tente outro nome ou publicação.";
+    feedback.textContent = state.monsters.results.length ? "" : (
+      state.monsters.provider === "custom" && !state.customCreatures.length
+        ? "Nenhuma criatura importada ainda. Use “Importar criaturas (JSON)”."
+        : "Nenhuma criatura encontrada. Tente outro nome ou publicação."
+    );
     document.querySelector("#monster-more").hidden = state.monsters.provider === "open5e"
       ? !state.monsters.next
       : state.monsters.results.length <= state.monsters.visibleCount;
@@ -1496,7 +1556,7 @@ async function showResourceDetails(category, index, resourceOverride = null) {
   body.textContent = "Carregando detalhes...";
   dialog.showModal();
   try {
-    const detail = category === "monsters" && resource.provider === "open5e"
+    const detail = category === "monsters" && ["open5e", "custom"].includes(resource.provider)
       ? resource
       : await requestApi(resource.url);
     let imageMarkup = "";
@@ -1572,6 +1632,7 @@ async function showResourceDetails(category, index, resourceOverride = null) {
         ["Ações bônus", detail.bonus_actions],
         ["Reações", detail.reactions],
         ["Ações lendárias", detail.legendary_actions],
+        ["Ações de covil", detail.lair_actions],
       ].map(([heading, entries]) => {
         const content = (entries || []).map((entry) => `<p><strong>${escapeHtml(entry.name)}.</strong> ${escapeHtml(entry.desc)}</p>`).join("");
         return content ? `<h3>${heading}</h3>${content}` : "";
@@ -1709,7 +1770,7 @@ function renderInitiative() {
   }
   list.innerHTML = orderedCombatants
     .map((combatant, index) => `
-      <div class="combatant-row ${combatant.id === state.currentCombatantId ? "is-current" : ""}">
+      <div class="combatant-row ${combatant.id === state.currentCombatantId ? "is-current" : ""} ${combatant.hp === "0" ? "is-down" : ""}">
         <span class="turn-index">${String(index + 1).padStart(2, "0")}</span>
         <span class="combatant-name-wrap">
           ${combatant.monster
@@ -1720,12 +1781,384 @@ function renderInitiative() {
         <label class="combatant-hp-control"><input class="combatant-hp-input" type="number" min="0" max="${combatant.maxHp || 9999}" value="${escapeHtml(combatant.hp)}" data-hp-for="${escapeHtml(combatant.id)}" aria-label="Pontos de vida atuais de ${escapeHtml(combatant.name)}" /><span>${combatant.maxHp ? `/ ${escapeHtml(combatant.maxHp)}` : ""} PV</span></label>
         <span class="combatant-ac">${combatant.ac === "" || combatant.ac == null ? "— CA" : `CA ${escapeHtml(combatant.ac)}`}</span>
         <button class="icon-button remove-combatant" type="button" data-remove="${escapeHtml(combatant.id)}" aria-label="Remover ${escapeHtml(combatant.name)}">×</button>
+        ${renderCombatantExtras(combatant)}
       </div>`).join("");
 }
 
-function renderNote() {
-  document.querySelector("#notes-title").value = state.note.title;
-  document.querySelector("#notes-content").value = state.note.content;
+function renderCombatantExtras(combatant) {
+  const id = escapeHtml(combatant.id);
+  const active = Array.isArray(combatant.conditions) ? combatant.conditions.filter((key) => conditionDefs[key]) : [];
+  const chips = active.map((key) => `<button class="condition-chip" type="button" data-condition-remove="${id}" data-condition-key="${key}" title="${escapeHtml(conditionDefs[key][1])} (clique para remover)">${escapeHtml(conditionDefs[key][0])} ×</button>`).join("");
+  const options = Object.entries(conditionDefs)
+    .filter(([key]) => !active.includes(key))
+    .map(([key, [label]]) => `<option value="${key}">${escapeHtml(label)}</option>`).join("");
+  return `<div class="combatant-extras">
+    <form class="hp-quick" data-hp-quick="${id}"><input class="hp-quick-input" type="text" inputmode="numeric" autocomplete="off" placeholder="−8 ou +5" aria-label="Dano ou cura de ${escapeHtml(combatant.name)}" /><button class="mini-button" type="submit" title="Número com − ou sem sinal causa dano; com + cura">Aplicar</button></form>
+    <button class="mini-button" type="button" data-duplicate="${id}" title="Duplicar combatente">⧉ Duplicar</button>
+    ${chips}
+    <select class="condition-add" data-condition-for="${id}" aria-label="Adicionar condição a ${escapeHtml(combatant.name)}"><option value="">＋ Condição</option>${options}</select>
+  </div>`;
+}
+
+function getDexterityModifier(monster) {
+  const dexterity = monster?.dexterity;
+  if (dexterity === null || dexterity === undefined || !Number.isFinite(Number(dexterity))) return null;
+  return Math.floor((Number(dexterity) - 10) / 2);
+}
+
+function persistCombatants() {
+  const saved = saveStored("cronica-combatants", state.combatants);
+  try {
+    if (state.currentCombatantId) localStorage.setItem("cronica-current-combatant", state.currentCombatantId);
+    else localStorage.removeItem("cronica-current-combatant");
+  } catch (error) {
+    console.error("Não foi possível salvar o turno atual.", error);
+  }
+  return saved;
+}
+
+function applyQuickHp(combatantId, rawValue) {
+  const combatant = state.combatants.find((item) => item.id === combatantId);
+  const match = String(rawValue).trim().match(/^([+\-−–]?)\s*(\d{1,4})$/);
+  if (!combatant || !match) {
+    showToast("Use um número, por exemplo −8 para dano ou +5 para cura.");
+    return;
+  }
+  if (combatant.hp === "" || combatant.hp == null) {
+    showToast("Informe os PV atuais deste combatente antes de aplicar dano ou cura.");
+    return;
+  }
+  const amount = Number(match[2]);
+  const delta = match[1] === "+" ? amount : -amount;
+  const maxHp = combatant.maxHp || 9999;
+  const next = Math.min(maxHp, Math.max(0, Number(combatant.hp) + delta));
+  combatant.hp = String(next);
+  persistCombatants();
+  renderInitiative();
+  showToast(`${combatant.name}: ${delta < 0 ? "−" : "+"}${amount} → ${next} PV${next === 0 ? " (caído a 0)" : ""}.`);
+}
+
+function duplicateCombatant(combatantId) {
+  const source = state.combatants.find((item) => item.id === combatantId);
+  if (!source) return;
+  const base = source.name.replace(/\s+\d+$/, "");
+  const numbers = state.combatants
+    .filter((item) => item.name === base || item.name.replace(/\s+\d+$/, "") === base)
+    .map((item) => Number(item.name.slice(base.length).trim()) || 1);
+  const modifier = getDexterityModifier(source.monster);
+  const score = modifier === null ? source.score : Math.floor(Math.random() * 20) + 1 + modifier;
+  state.combatants.push({
+    ...source,
+    id: crypto.randomUUID(),
+    name: `${base} ${Math.max(...numbers) + 1}`,
+    score,
+    hp: source.maxHp != null ? String(source.maxHp) : source.hp,
+    conditions: [],
+  });
+  persistCombatants();
+  renderInitiative();
+  showToast(`${base} duplicado${modifier === null ? "" : " com nova rolagem de iniciativa"}.`);
+}
+
+function rollAllMonsterInitiative() {
+  const monsters = state.combatants.filter((item) => getDexterityModifier(item.monster) !== null);
+  if (!monsters.length) {
+    showToast("Nenhum combatente com ficha de criatura para rolar.");
+    return;
+  }
+  monsters.forEach((item) => {
+    item.score = Math.floor(Math.random() * 20) + 1 + getDexterityModifier(item.monster);
+  });
+  state.currentCombatantId = [...state.combatants].sort((a, b) => b.score - a.score)[0].id;
+  persistCombatants();
+  renderInitiative();
+  showToast(`Iniciativa rolada para ${monsters.length} ${monsters.length === 1 ? "criatura" : "criaturas"}.`);
+}
+
+function toggleCondition(combatantId, key, enable) {
+  const combatant = state.combatants.find((item) => item.id === combatantId);
+  if (!combatant || !conditionDefs[key]) return;
+  const current = Array.isArray(combatant.conditions) ? combatant.conditions : [];
+  combatant.conditions = enable ? [...new Set([...current, key])] : current.filter((item) => item !== key);
+  persistCombatants();
+  renderInitiative();
+}
+
+function campaignOptions(selected, extra = []) {
+  return [...extra, ...state.campaigns.map((campaign) => [campaign.id, campaign.name])]
+    .map(([value, label]) => `<option value="${escapeHtml(value)}"${value === selected ? " selected" : ""}>${escapeHtml(label)}</option>`)
+    .join("");
+}
+
+function getVisibleNotes() {
+  const filter = state.notesFilter;
+  return state.notes
+    .filter((note) => filter === "all" || (filter === "none" ? !note.campaignId : note.campaignId === filter))
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+function renderNotes() {
+  const knownCampaigns = new Set(state.campaigns.map((campaign) => campaign.id));
+  if (!["all", "none"].includes(state.notesFilter) && !knownCampaigns.has(state.notesFilter)) state.notesFilter = "all";
+  document.querySelector("#notes-campaign-filter").innerHTML = campaignOptions(state.notesFilter, [["all", "Todas as anotações"], ["none", "Sem campanha"]]);
+  const visible = getVisibleNotes();
+  document.querySelector("#notes-list").innerHTML = visible.map((note) => {
+    const campaign = state.campaigns.find((item) => item.id === note.campaignId);
+    return `<button class="note-item ${note.id === state.activeNoteId ? "is-active" : ""}" type="button" data-note-id="${escapeHtml(note.id)}"><strong>${escapeHtml(note.title || "Sem título")}</strong><small>${escapeHtml(campaign?.name || "Sem campanha")}</small></button>`;
+  }).join("");
+  document.querySelector("#notes-empty").hidden = visible.length > 0;
+  renderNoteEditor();
+}
+
+function renderNoteEditor() {
+  const note = state.notes.find((item) => item.id === state.activeNoteId);
+  const defaultCampaign = !["all", "none"].includes(state.notesFilter) ? state.notesFilter : "";
+  document.querySelector("#notes-title").value = note?.title || "";
+  document.querySelector("#notes-content").value = note?.content || "";
+  document.querySelector("#notes-campaign").innerHTML = campaignOptions(note ? note.campaignId : defaultCampaign, [["", "Sem campanha"]]);
+  document.querySelector("#delete-note").hidden = !note;
+  document.querySelector("#notes-status").textContent = note ? "Salvo neste navegador" : "Nova anotação";
+  state.notesDirty = false;
+}
+
+function selectNote(noteId) {
+  if (state.notesDirty && !window.confirm("Descartar as alterações não salvas desta anotação?")) return;
+  state.activeNoteId = noteId;
+  renderNotes();
+}
+
+function saveCurrentNote() {
+  const title = document.querySelector("#notes-title").value.trim();
+  const content = document.querySelector("#notes-content").value;
+  if (!title && !content.trim()) {
+    showToast("Escreva um título ou algum texto antes de salvar.");
+    return;
+  }
+  const campaignId = document.querySelector("#notes-campaign").value;
+  const existing = state.notes.find((item) => item.id === state.activeNoteId);
+  const previous = [...state.notes];
+  if (existing) Object.assign(existing, { title, content, campaignId, updatedAt: Date.now() });
+  else {
+    const created = { id: crypto.randomUUID(), title, content, campaignId, updatedAt: Date.now() };
+    state.notes.push(created);
+    state.activeNoteId = created.id;
+  }
+  if (saveStored("cronica-notes", state.notes)) {
+    state.notesDirty = false;
+    renderNotes();
+    showToast("Anotação salva.");
+  } else {
+    state.notes = previous;
+  }
+}
+
+function deleteCurrentNote() {
+  const note = state.notes.find((item) => item.id === state.activeNoteId);
+  if (!note || !window.confirm(`Excluir a anotação “${note.title || "Sem título"}”?`)) return;
+  state.notes = state.notes.filter((item) => item.id !== note.id);
+  saveStored("cronica-notes", state.notes);
+  state.activeNoteId = null;
+  renderNotes();
+  showToast("Anotação excluída.");
+}
+
+const CREATURE_TEMPLATE = [{
+  name: "Sentinela de Cinzas",
+  size: "Medium",
+  type: "construct",
+  alignment: "unaligned",
+  armor_class: [{ value: 15, type: "natural armor" }],
+  hit_points: 45,
+  hit_dice: "6d8 + 18",
+  speed: { walk: "30 ft." },
+  strength: 16, dexterity: 12, constitution: 16, intelligence: 4, wisdom: 10, charisma: 3,
+  saving_throws: { CON: "+5" },
+  skills: { Perception: "+2" },
+  damage_immunities: "poison",
+  condition_immunities: "charmed, exhausted, poisoned",
+  senses: "darkvision 60 ft., passive Perception 12",
+  languages: "entende a língua do criador, mas não fala",
+  challenge_rating: "2",
+  special_abilities: [{ name: "Forma Imutável", desc: "A sentinela é imune a qualquer magia ou efeito que altere sua forma." }],
+  actions: [
+    { name: "Ataques Múltiplos", desc: "A sentinela faz dois ataques de pancada." },
+    { name: "Pancada", desc: "Ataque corpo a corpo com arma: +5 para atingir, alcance 1,5 m, um alvo. Acerto: 9 (2d6 + 3) de dano contundente." },
+  ],
+  document__title: "Criatura própria",
+}];
+
+const CREATURE_TEXT_FIELDS = ["size", "type", "subtype", "alignment", "hit_dice", "senses", "languages", "damage_vulnerabilities", "damage_resistances", "damage_immunities", "condition_immunities", "desc", "document__title"];
+const CREATURE_ENTRY_FIELDS = ["special_abilities", "actions", "bonus_actions", "reactions", "legendary_actions", "lair_actions"];
+const CREATURE_ABILITIES = ["strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"];
+
+function normalizeCustomCreature(raw) {
+  if (!raw || typeof raw !== "object" || typeof raw.name !== "string" || !raw.name.trim()) return null;
+  const hitPoints = Number(raw.hit_points);
+  if (!Number.isFinite(hitPoints) || hitPoints < 0) return null;
+  const clean = (value, max = 4000) => String(value ?? "").slice(0, max);
+  const creature = { name: clean(raw.name, 100).trim(), hit_points: Math.round(hitPoints), provider: "custom" };
+  creature.slug = `custom-${normalizeSearchTerm(creature.name).replace(/[^a-z0-9]+/g, "-")}`;
+  CREATURE_TEXT_FIELDS.forEach((field) => {
+    if (raw[field] != null && raw[field] !== "") creature[field] = clean(raw[field]);
+  });
+  CREATURE_ABILITIES.forEach((field) => {
+    const value = Number(raw[field]);
+    if (Number.isFinite(value) && value >= 1 && value <= 30) creature[field] = Math.round(value);
+  });
+  if (Array.isArray(raw.armor_class)) {
+    creature.armor_class = raw.armor_class
+      .map((entry) => ({ value: Number(entry?.value), type: clean(entry?.type, 60) }))
+      .filter((entry) => Number.isFinite(entry.value));
+  } else if (Number.isFinite(Number(raw.armor_class))) {
+    creature.armor_class = [{ value: Number(raw.armor_class), type: "" }];
+  }
+  const challenge = raw.challenge_rating ?? raw.cr;
+  if (challenge != null && challenge !== "") creature.challenge_rating = clean(challenge, 12);
+  const speed = typeof raw.speed === "string" ? { walk: raw.speed } : raw.speed;
+  if (speed && typeof speed === "object") {
+    creature.speed = Object.fromEntries(Object.entries(speed).slice(0, 8).map(([kind, value]) => [clean(kind, 20), clean(value, 30)]));
+  }
+  ["saving_throws", "skills"].forEach((field) => {
+    if (raw[field] && typeof raw[field] === "object" && !Array.isArray(raw[field])) {
+      creature[field] = Object.fromEntries(Object.entries(raw[field]).slice(0, 30).map(([key, value]) => [clean(key, 30), clean(value, 12)]));
+    }
+  });
+  CREATURE_ENTRY_FIELDS.forEach((field) => {
+    if (Array.isArray(raw[field])) {
+      creature[field] = raw[field].slice(0, 60)
+        .map((entry) => ({ name: clean(entry?.name, 120), desc: clean(entry?.desc ?? entry?.description, 4000) }))
+        .filter((entry) => entry.name || entry.desc);
+    }
+  });
+  return creature;
+}
+
+function downloadJson(filename, data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
+async function readJsonFile(file, maxBytes = 5 * 1024 * 1024) {
+  if (file.size > maxBytes) throw new Error("O arquivo é grande demais (limite de 5 MB).");
+  return JSON.parse(await file.text());
+}
+
+async function importCustomCreatures(file) {
+  try {
+    const raw = await readJsonFile(file);
+    const list = Array.isArray(raw) ? raw : raw?.creatures ?? raw?.monsters;
+    if (!Array.isArray(list)) throw new Error("Esperava uma lista de criaturas.");
+    const valid = list.map(normalizeCustomCreature).filter(Boolean);
+    if (!valid.length) {
+      showToast("Nenhuma criatura válida no arquivo. Baixe o modelo para ver o formato.");
+      return;
+    }
+    const merged = new Map(state.customCreatures.map((creature) => [creature.slug, creature]));
+    valid.forEach((creature) => merged.set(creature.slug, creature));
+    const previous = state.customCreatures;
+    state.customCreatures = [...merged.values()];
+    if (!saveStored("cronica-custom-creatures", state.customCreatures)) {
+      state.customCreatures = previous;
+      return;
+    }
+    const skipped = list.length - valid.length;
+    showToast(`${valid.length} ${valid.length === 1 ? "criatura importada" : "criaturas importadas"}${skipped ? `; ${skipped} ignorada(s) por dados inválidos` : ""}.`);
+    if (state.monsters.provider === "custom") loadMonsters();
+  } catch (error) {
+    console.error("Falha ao importar criaturas.", error);
+    showToast("Não foi possível ler o arquivo. Confira se é um JSON válido.");
+  }
+}
+
+const BACKUP_KEYS = {
+  campaigns: "cronica-campaigns",
+  activeCampaignId: "cronica-active-campaign",
+  combatants: "cronica-combatants",
+  round: "cronica-round",
+  currentCombatantId: "cronica-current-combatant",
+  notes: "cronica-notes",
+  customCreatures: "cronica-custom-creatures",
+};
+
+function exportAllData() {
+  downloadJson(`band-d-backup-${new Date().toISOString().slice(0, 10)}.json`, {
+    app: "band-d-hub",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    data: {
+      campaigns: state.campaigns,
+      activeCampaignId: state.activeCampaignId,
+      combatants: state.combatants,
+      round: state.round,
+      currentCombatantId: state.currentCombatantId,
+      notes: state.notes,
+      customCreatures: state.customCreatures,
+    },
+  });
+  document.querySelector("#backup-status").textContent = "Arquivo gerado. Guarde-o em um lugar seguro.";
+}
+
+async function importAllData(file) {
+  const status = document.querySelector("#backup-status");
+  try {
+    const raw = await readJsonFile(file, 20 * 1024 * 1024);
+    const data = raw?.app === "band-d-hub" ? raw.data : null;
+    if (!data || typeof data !== "object") throw new Error("Arquivo de backup inválido.");
+    const text = (value, max) => String(value ?? "").slice(0, max);
+    const campaigns = (Array.isArray(data.campaigns) ? data.campaigns : [])
+      .filter((item) => item && typeof item.id === "string" && typeof item.name === "string")
+      .map((item) => ({
+        id: text(item.id, 80),
+        name: text(item.name, 80),
+        description: text(item.description, 500),
+        background: ["mountains", "forest", "ruins", "night", "custom"].includes(item.background) ? item.background : "mountains",
+        imageUrl: item.background === "custom" && getSafeExternalUrl(item.imageUrl).startsWith("https:") ? getSafeExternalUrl(item.imageUrl) : "",
+      }));
+    const combatants = (Array.isArray(data.combatants) ? data.combatants : [])
+      .filter((item) => item && typeof item.id === "string" && typeof item.name === "string" && Number.isFinite(Number(item.score)))
+      .map((item) => ({
+        id: text(item.id, 80),
+        name: text(item.name, 48),
+        score: Number(item.score),
+        hp: text(item.hp, 6),
+        maxHp: Number.isFinite(Number(item.maxHp)) && item.maxHp !== null ? Number(item.maxHp) : null,
+        ac: text(item.ac, 6),
+        conditions: Array.isArray(item.conditions) ? item.conditions.filter((key) => conditionDefs[key]) : [],
+        monster: item.monster && typeof item.monster === "object" ? item.monster : null,
+      }));
+    const notes = (Array.isArray(data.notes) ? data.notes : [])
+      .filter((item) => item && typeof item.id === "string")
+      .map((item) => ({ id: text(item.id, 80), title: text(item.title, 100), content: text(item.content, 100000), campaignId: text(item.campaignId, 80), updatedAt: Number(item.updatedAt) || Date.now() }));
+    const customCreatures = (Array.isArray(data.customCreatures) ? data.customCreatures : []).map(normalizeCustomCreature).filter(Boolean);
+    const summary = `${campaigns.length} campanha(s), ${combatants.length} combatente(s), ${notes.length} anotação(ões), ${customCreatures.length} criatura(s)`;
+    if (!window.confirm(`Substituir os dados deste navegador por: ${summary}?`)) return;
+    saveStoredOrThrow(BACKUP_KEYS.campaigns, campaigns);
+    saveStoredOrThrow(BACKUP_KEYS.combatants, combatants);
+    saveStoredOrThrow(BACKUP_KEYS.notes, notes);
+    saveStoredOrThrow(BACKUP_KEYS.customCreatures, customCreatures);
+    localStorage.setItem("cronica-campaigns-migrated", "true");
+    localStorage.setItem(BACKUP_KEYS.round, String(Math.max(1, Number(data.round) || 1)));
+    [["activeCampaignId", campaigns], ["currentCombatantId", combatants]].forEach(([field, list]) => {
+      const value = data[field];
+      if (typeof value === "string" && list.some((item) => item.id === value)) localStorage.setItem(BACKUP_KEYS[field], value);
+      else localStorage.removeItem(BACKUP_KEYS[field]);
+    });
+    status.textContent = "Dados importados. Recarregando...";
+    window.setTimeout(() => window.location.reload(), 600);
+  } catch (error) {
+    console.error("Falha ao importar o backup.", error);
+    status.textContent = "Não foi possível importar: confira se o arquivo é um backup do BanD&D.";
+  }
+}
+
+function saveStoredOrThrow(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
 }
 
 function renderCampaigns() {
@@ -1864,6 +2297,7 @@ function setupEvents() {
     state.monsters.results = [];
     state.monsters.next = null;
     document.querySelector("#monster-document-filter").hidden = state.monsters.provider !== "open5e";
+    document.querySelector("#custom-creature-tools").hidden = state.monsters.provider !== "custom";
     if (state.monsters.provider === "open5e") loadOpen5eDocuments();
     loadMonsters();
   });
@@ -2123,19 +2557,67 @@ function setupEvents() {
     renderInitiative();
     showToast("Rodada reiniciada.");
   });
-  document.querySelector("#save-note").addEventListener("click", () => {
-    state.note = {
-      title: document.querySelector("#notes-title").value.trim(),
-      content: document.querySelector("#notes-content").value,
-    };
-    if (saveStored("cronica-note", state.note)) {
-      document.querySelector("#notes-status").textContent = "Anotação salva neste navegador";
-      showToast("Anotação salva.");
-    }
+  document.querySelector("#save-note").addEventListener("click", saveCurrentNote);
+  document.querySelector("#delete-note").addEventListener("click", deleteCurrentNote);
+  document.querySelector("#new-note").addEventListener("click", () => selectNote(null));
+  document.querySelector("#notes-list").addEventListener("click", (event) => {
+    const item = event.target.closest("[data-note-id]");
+    if (item && item.dataset.noteId !== state.activeNoteId) selectNote(item.dataset.noteId);
   });
-  document.querySelectorAll("#notes-title, #notes-content").forEach((field) => field.addEventListener("input", () => {
-    document.querySelector("#notes-status").textContent = "Alterações não salvas";
-  }));
+  document.querySelector("#notes-campaign-filter").addEventListener("change", (event) => {
+    if (state.notesDirty && !window.confirm("Descartar as alterações não salvas desta anotação?")) {
+      event.target.value = state.notesFilter;
+      return;
+    }
+    state.notesFilter = event.target.value;
+    state.activeNoteId = null;
+    renderNotes();
+  });
+  document.querySelectorAll("#notes-title, #notes-content, #notes-campaign").forEach((field) => {
+    field.addEventListener("input", () => {
+      state.notesDirty = true;
+      document.querySelector("#notes-status").textContent = "Alterações não salvas";
+    });
+  });
+  document.querySelector("#export-data").addEventListener("click", exportAllData);
+  document.querySelector("#import-data").addEventListener("click", () => document.querySelector("#import-data-file").click());
+  document.querySelector("#import-data-file").addEventListener("change", (event) => {
+    const [file] = event.target.files;
+    event.target.value = "";
+    if (file) importAllData(file);
+  });
+  document.querySelector("#import-creatures").addEventListener("click", () => document.querySelector("#creature-import-file").click());
+  document.querySelector("#creature-import-file").addEventListener("change", (event) => {
+    const [file] = event.target.files;
+    event.target.value = "";
+    if (file) importCustomCreatures(file);
+  });
+  document.querySelector("#download-creature-template").addEventListener("click", () => downloadJson("modelo-criaturas.json", CREATURE_TEMPLATE));
+  document.querySelector("#clear-creatures").addEventListener("click", () => {
+    if (!state.customCreatures.length || !window.confirm("Remover todas as criaturas importadas deste navegador?")) return;
+    state.customCreatures = [];
+    saveStored("cronica-custom-creatures", state.customCreatures);
+    if (state.monsters.provider === "custom") loadMonsters();
+    showToast("Criaturas importadas removidas.");
+  });
+  document.querySelector("#roll-all-initiative").addEventListener("click", rollAllMonsterInitiative);
+  const initiativeList = document.querySelector("#initiative-list");
+  initiativeList.addEventListener("submit", (event) => {
+    const form = event.target.closest("[data-hp-quick]");
+    if (!form) return;
+    event.preventDefault();
+    applyQuickHp(form.dataset.hpQuick, form.querySelector("input").value);
+  });
+  initiativeList.addEventListener("click", (event) => {
+    const duplicate = event.target.closest("[data-duplicate]");
+    if (duplicate) duplicateCombatant(duplicate.dataset.duplicate);
+    const chip = event.target.closest("[data-condition-remove]");
+    if (chip) toggleCondition(chip.dataset.conditionRemove, chip.dataset.conditionKey, false);
+  });
+  initiativeList.addEventListener("change", (event) => {
+    const select = event.target.closest("[data-condition-for]");
+    if (select && select.value) toggleCondition(select.dataset.conditionFor, select.value, true);
+  });
   document.querySelectorAll("#new-campaign, #new-campaign-card").forEach((button) => button.addEventListener("click", () => openCampaignEditor()));
   document.querySelector("#campaign-background").addEventListener("change", updateCampaignImageField);
   document.querySelector("#campaign-editor-close").addEventListener("click", () => document.querySelector("#campaign-editor").close());
@@ -2182,6 +2664,10 @@ function setupEvents() {
     const wasActive = state.activeCampaignId === campaign.id;
     state.campaigns = state.campaigns.filter((item) => item.id !== campaign.id);
     if (saveStored("cronica-campaigns", state.campaigns)) {
+      if (state.notes.some((note) => note.campaignId === campaign.id)) {
+        state.notes.forEach((note) => { if (note.campaignId === campaign.id) note.campaignId = ""; });
+        saveStored("cronica-notes", state.notes);
+      }
       if (wasActive) setActiveCampaign(state.campaigns[0] || null);
       renderCampaigns();
       document.querySelector("#campaign-editor").close();

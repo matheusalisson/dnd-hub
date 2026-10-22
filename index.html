@@ -36,6 +36,9 @@
           <button class="nav-item" data-view="notes" type="button">
             <span class="nav-icon" aria-hidden="true">✎</span> Anotações
           </button>
+          <button class="nav-item" data-view="backup" type="button">
+            <span class="nav-icon" aria-hidden="true">⇅</span> Dados e backup
+          </button>
         </nav>
 
         <div class="sidebar-label library-label">BIBLIOTECA</div>
@@ -200,8 +203,15 @@
             </div>
             <div class="catalog-toolbar">
               <label class="catalog-search"><span aria-hidden="true">⌕</span><input id="monster-search" type="search" aria-label="Buscar criatura em português ou inglês" placeholder="Buscar criatura em português ou inglês..." /><kbd>⌕</kbd></label>
-              <label class="filter-select"><span>Fonte</span><select id="monster-source"><option value="dnd5e">D&D 5e 2014 · SRD</option><option value="open5e">Open5e · fontes abertas</option></select></label>
+              <label class="filter-select"><span>Fonte</span><select id="monster-source"><option value="dnd5e">D&D 5e 2014 · SRD</option><option value="open5e">Open5e · fontes abertas</option><option value="custom">Minhas criaturas · importadas</option></select></label>
               <label class="filter-select" id="monster-document-filter" hidden><span>Publicação</span><select id="monster-document"><option value="">Todas as fontes abertas</option></select></label>
+            </div>
+            <div class="tool-row" id="custom-creature-tools" hidden>
+              <button class="button button-outline" id="import-creatures" type="button">⤒ Importar criaturas (JSON)</button>
+              <button class="button button-outline" id="download-creature-template" type="button">⤓ Baixar modelo</button>
+              <button class="button button-outline" id="clear-creatures" type="button">Remover todas</button>
+              <input id="creature-import-file" type="file" accept="application/json,.json" hidden />
+              <small class="input-hint">As criaturas ficam salvas só neste navegador e entram no backup. Use apenas fichas que você tem direito de usar.</small>
             </div>
             <div class="catalog-caption"><span id="monster-count">Carregando criaturas...</span><span id="monster-source-label">Fonte: D&D 5e API · regras de 2014</span></div>
             <div class="resource-grid" id="monster-list" aria-live="polite"></div>
@@ -227,7 +237,10 @@
           <section class="view" id="view-initiative" data-title="Iniciativa" hidden>
             <div class="page-heading-row">
               <div><p class="eyebrow"><span class="eyebrow-line"></span> FERRAMENTAS DE MESA</p><h1>Ordem de iniciativa</h1><p class="page-subtitle">Combate organizado, aventura em movimento.</p></div>
-              <button class="button button-outline" id="reset-initiative" type="button">↻ Reiniciar rodada</button>
+              <div class="tool-row">
+                <button class="button button-outline" id="roll-all-initiative" type="button">🎲 Rolar iniciativa dos monstros</button>
+                <button class="button button-outline" id="reset-initiative" type="button">↻ Reiniciar rodada</button>
+              </div>
             </div>
             <section class="panel initiative-panel">
               <div class="quick-spell-search">
@@ -259,12 +272,38 @@
             <div class="page-heading-row">
               <div><p class="eyebrow"><span class="eyebrow-line"></span> IDEIAS QUE VALEM OURO</p><h1>Anotações</h1><p class="page-subtitle">Registre os detalhes que farão sua história inesquecível.</p></div>
             </div>
-            <section class="panel notes-panel">
-              <label class="notes-title-label" for="notes-title">Título da anotação</label>
-              <input id="notes-title" class="notes-title" maxlength="100" placeholder="Ex.: O segredo da estalajadeira" />
-              <label class="notes-title-label" for="notes-content">Sua anotação</label>
-              <textarea id="notes-content" rows="9" placeholder="Personagens, pistas, reviravoltas... anote aqui antes que a inspiração fuja."></textarea>
-              <div class="notes-footer"><span id="notes-status">Salvo neste navegador</span><button class="button button-primary" id="save-note" type="button">Salvar anotação</button></div>
+            <div class="notes-layout">
+              <aside class="panel notes-sidebar">
+                <label class="filter-select"><span>Campanha</span><select id="notes-campaign-filter" aria-label="Filtrar anotações por campanha"></select></label>
+                <button class="button button-outline" id="new-note" type="button">＋ Nova anotação</button>
+                <div class="notes-list" id="notes-list"></div>
+                <p class="notes-empty" id="notes-empty">Nenhuma anotação aqui ainda.</p>
+              </aside>
+              <section class="panel notes-panel">
+                <label class="notes-title-label" for="notes-title">Título da anotação</label>
+                <input id="notes-title" class="notes-title" maxlength="100" placeholder="Ex.: O segredo da estalajadeira" />
+                <label class="notes-title-label" for="notes-campaign">Campanha</label>
+                <select id="notes-campaign" class="notes-title"></select>
+                <label class="notes-title-label" for="notes-content">Sua anotação</label>
+                <textarea id="notes-content" rows="9" placeholder="Personagens, pistas, reviravoltas... anote aqui antes que a inspiração fuja."></textarea>
+                <div class="notes-footer"><span id="notes-status">Nova anotação</span><span class="notes-actions"><button class="campaign-delete" id="delete-note" type="button" hidden>Excluir</button><button class="button button-primary" id="save-note" type="button">Salvar anotação</button></span></div>
+              </section>
+            </div>
+          </section>
+
+          <section class="view" id="view-backup" data-title="Dados e backup" hidden>
+            <div class="page-heading-row">
+              <div><p class="eyebrow"><span class="eyebrow-line"></span> LEVE SUAS HISTÓRIAS</p><h1>Dados e backup</h1><p class="page-subtitle">Exporte tudo para um arquivo e importe em outro computador ou navegador.</p></div>
+            </div>
+            <section class="panel backup-panel">
+              <h2>Exportar</h2>
+              <p>Gera um arquivo JSON com campanhas, combatentes, anotações e criaturas importadas.</p>
+              <button class="button button-primary" id="export-data" type="button">⤓ Exportar dados</button>
+              <h2>Importar</h2>
+              <p>Substitui os dados deste navegador pelos do arquivo escolhido. Exporte antes, se quiser guardar os atuais.</p>
+              <button class="button button-outline" id="import-data" type="button">⤒ Importar arquivo</button>
+              <input id="import-data-file" type="file" accept="application/json,.json" hidden />
+              <p class="input-hint" id="backup-status" role="status"></p>
             </section>
           </section>
         </div>

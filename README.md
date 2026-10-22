@@ -19,6 +19,10 @@ Abra `index.html` em um navegador. Para evitar restrições do navegador ao carr
 - Busca de criaturas do SRD 2014 e Open5e na iniciativa, com preenchimento de PV e CA, rolagem de iniciativa com d20 e modificador de Destreza e edição de PV durante o combate.
 - Consulta rápida pesquisável de regras básicas de 2014, resumidas em português.
 - Rastreador de iniciativa e anotações salvos no armazenamento local do navegador.
+- Iniciativa com dano e cura rápidos (`−8`, `+5`), condições por combatente, duplicação (3 goblins) e rolagem de iniciativa de todos os monstros de uma vez.
+- Várias anotações, cada uma opcionalmente ligada a uma campanha.
+- Criaturas próprias: importe um JSON (há um modelo para baixar na tela Criaturas → "Minhas criaturas"); elas ficam só no seu navegador e aparecem na busca da iniciativa.
+- Dados e backup: exporte campanhas, combatentes, anotações e criaturas para um arquivo JSON e importe em outro computador.
 
 Os textos da interface estão em português. Os truques do SRD 2014 são consultados na D&D 5e API e têm conteúdo localizado no cliente; as fichas preservam o nome original da API como referência. O catálogo Open5e agrega SRD e outras fontes abertas licenciadas; ele não é uma lista completa dos monstros de aventuras comerciais de D&D. A versão inicial não inclui servidor nem sincronização entre dispositivos.
 
