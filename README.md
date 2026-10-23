@@ -19,7 +19,11 @@ Abra `index.html` em um navegador. Para evitar restrições do navegador ao carr
 - Busca de criaturas do SRD 2014 e Open5e na iniciativa, com preenchimento de PV e CA, rolagem de iniciativa com d20 e modificador de Destreza e edição de PV durante o combate.
 - Consulta rápida pesquisável de regras básicas de 2014, resumidas em português.
 - Rastreador de iniciativa e anotações salvos no armazenamento local do navegador.
-- Iniciativa com dano e cura rápidos (`−8`, `+5`), condições por combatente, duplicação (3 goblins) e rolagem de iniciativa de todos os monstros de uma vez.
+- Iniciativa com dano e cura rápidos (`−8`, `+5` ou botões Dano/Cura), condições por combatente, duplicação (3 goblins) e rolagem de iniciativa de todos os monstros de uma vez.
+- Controle de turno: turno anterior, indicador "Vez de", barra fixa ao rolar a página, atalhos de teclado (`N`/`→`, `V`/`←`, `A`) e criaturas abatidas puladas automaticamente; empates resolvidos pela Destreza.
+- Adição em grupo (campo Qtd.: Goblin 1, 2, 3...) com iniciativa individual quando o campo fica em branco; iniciativa editável direto na lista.
+- PV temporários (absorvem dano primeiro), barra de PV com estados Sangrando/Crítico/Abatido, lembrete de CD do teste de concentração e PJ a 0 PV marcado como inconsciente.
+- PJs marcados são mantidos ao **Encerrar combate**; remover combatentes e encerrar o combate podem ser desfeitos pelo aviso.
 - Várias anotações, cada uma opcionalmente ligada a uma campanha.
 - Criaturas próprias: importe um JSON (há um modelo para baixar na tela Criaturas → "Minhas criaturas"); elas ficam só no seu navegador e aparecem na busca da iniciativa.
 - Dados e backup: exporte campanhas, combatentes, anotações e criaturas para um arquivo JSON e importe em outro computador.

@@ -61,15 +61,7 @@
           <div class="sidebar-tip">
             <span class="tip-star" aria-hidden="true">✦</span>
             <p>Uma boa história merece um bom lugar para acontecer.</p>
-            <span class="tip-credit">SEU PRÓXIMO CAPÍTULO COMEÇA AQUI</span>
-          </div>
-          <div class="profile">
-            <div class="avatar">M</div>
-            <div class="profile-copy">
-              <strong>Mestre</strong>
-              <span>Plano gratuito</span>
-            </div>
-            <button class="icon-button profile-menu" type="button" aria-label="Opções do perfil">···</button>
+            <span class="tip-credit">Pressione <kbd>/</kbd> para buscar magias</span>
           </div>
         </div>
       </aside>
@@ -83,10 +75,6 @@
               <input id="global-search" type="search" placeholder="Buscar magia no compêndio..." aria-label="Buscar magia no compêndio" />
               <kbd>/</kbd>
             </label>
-            <button class="icon-button notification-button" type="button" aria-label="Notificações">
-              ♧<span class="notification-dot"></span>
-            </button>
-            <div class="topbar-avatar" aria-hidden="true">M</div>
           </div>
         </header>
 
@@ -144,8 +132,8 @@
 
             <div class="dashboard-bottom">
               <section class="panel next-session">
-                <div class="panel-heading"><div><span class="mini-icon">◷</span><h2>Campanha ativa</h2></div><button class="text-button" data-open-active-campaign type="button">Abrir campanha <span>→</span></button></div>
-                <div class="session-date dashboard-active-campaign"><div class="date-block"><span>ATIVA</span><strong>✦</strong></div><div><strong id="dashboard-active-name">Nenhuma campanha aberta</strong><span id="dashboard-active-description">Abra ou crie uma campanha para começar.</span></div></div>
+                <div class="panel-heading"><div><span class="mini-icon">⚔</span><h2>Combate atual</h2></div><button class="text-button" data-go="initiative" type="button">Abrir iniciativa <span>→</span></button></div>
+                <div class="session-date"><div class="date-block"><span>RODADA</span><strong id="dashboard-round">1</strong></div><div><strong id="dashboard-combat-title">Nenhum combate em andamento</strong><span id="dashboard-combat-detail">Adicione combatentes na iniciativa para começar.</span></div></div>
               </section>
               <section class="panel recent-activity">
                 <div class="panel-heading"><div><span class="mini-icon">↻</span><h2>Continue de onde parou</h2></div></div>
@@ -227,7 +215,7 @@
             </div>
             <div class="catalog-toolbar">
               <label class="catalog-search"><span aria-hidden="true">⌕</span><input id="rules-search" type="search" aria-label="Buscar regra em português" placeholder="Buscar regra: vantagem, concentração, descanso..." /><kbd>⌕</kbd></label>
-              <label class="filter-select"><span>Categoria</span><select id="rules-category"><option value="">Todas as categorias</option><option value="testes">Testes</option><option value="combate">Combate</option><option value="magia">Magia</option><option value="exploracao">Exploração</option></select></label>
+              <label class="filter-select"><span>Categoria</span><select id="rules-category"><option value="">Todas as categorias</option><option value="testes">Testes</option><option value="acoes">Ações em combate</option><option value="combate">Combate</option><option value="dano">Dano e cura</option><option value="magia">Magia</option><option value="condicoes">Condições</option><option value="exploracao">Exploração e descanso</option></select></label>
             </div>
             <div class="catalog-caption"><span id="rules-count">Regras de referência</span><span>Resumos próprios baseados nas regras básicas de 2014</span></div>
             <div class="rules-grid" id="rules-list"></div>
@@ -238,34 +226,71 @@
             <div class="page-heading-row">
               <div><p class="eyebrow"><span class="eyebrow-line"></span> FERRAMENTAS DE MESA</p><h1>Ordem de iniciativa</h1><p class="page-subtitle">Combate organizado, aventura em movimento.</p></div>
               <div class="tool-row">
-                <button class="button button-outline" id="roll-all-initiative" type="button">🎲 Rolar iniciativa dos monstros</button>
+                <button class="button button-outline" id="roll-all-initiative" type="button">🎲 Rolar monstros</button>
                 <button class="button button-outline" id="reset-initiative" type="button">↻ Reiniciar rodada</button>
+                <button class="button button-ghost-danger" id="end-combat" type="button" title="Remove as criaturas, mantém os PJs e volta à rodada 1">⚑ Encerrar combate</button>
               </div>
             </div>
-            <section class="panel initiative-panel">
-              <div class="quick-spell-search">
-                <label class="quick-spell-label" for="initiative-spell-search">Consulta rápida de magias e truques</label>
-                <div class="spell-input-wrap">
-                  <span class="search-icon">✧</span>
-                  <input id="initiative-spell-search" type="search" placeholder="Pesquise em português ou inglês..." autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="initiative-spell-suggestions" aria-expanded="false" />
-                  <kbd>⌕</kbd>
-                  <div class="spell-suggestions" id="initiative-spell-suggestions" role="listbox" hidden></div>
+            <div class="initiative-layout">
+              <section class="panel initiative-panel" aria-label="Ordem de combate">
+                <div class="initiative-topline">
+                  <div class="round-box"><span class="round-label">Rodada</span><strong id="round-number">01</strong></div>
+                  <p class="current-turn" id="current-turn" aria-live="polite" hidden><span class="round-label">Vez de</span><b id="current-turn-name"></b></p>
+                  <div class="turn-controls">
+                    <button class="button button-outline" id="previous-turn" type="button" title="Turno anterior (V ou ←)" aria-label="Turno anterior"><span aria-hidden="true">←</span><span class="turn-label">Anterior</span></button>
+                    <button class="button button-primary" id="next-turn" type="button" title="Próximo turno (N ou →)">Próximo turno <span aria-hidden="true">→</span></button>
+                  </div>
                 </div>
-                <small class="quick-spell-status" id="initiative-spell-status" role="status">Digite pelo menos 2 letras. Selecione um resultado para abrir a ficha.</small>
-              </div>
-              <div class="initiative-topline"><div><span class="round-label">RODADA</span><strong id="round-number">01</strong></div><button class="button button-primary" id="next-turn" type="button">Próximo turno <span>→</span></button></div>
-              <form class="initiative-form" id="initiative-form">
-                <div class="creature-search-field"><label for="combatant-name">Personagem ou criatura</label><div class="creature-input-wrap"><input id="combatant-name" name="name" placeholder="Busque em português ou inglês..." required maxlength="48" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="creature-suggestions" aria-expanded="false" /><button class="monster-image-button" id="selected-creature-image" type="button" data-image-preview hidden>▧</button></div><div class="creature-suggestions" id="creature-suggestions" role="listbox" hidden></div><small class="input-hint" id="creature-search-status" role="status">Digite para buscar criaturas do SRD 2014 e Open5e.</small></div>
-                <div class="initiative-score-field"><label for="combatant-score">Iniciativa</label><div class="initiative-score-control"><input id="combatant-score" name="score" type="number" placeholder="12" required min="-10" max="99" /><button class="icon-button initiative-roll" id="roll-initiative" type="button" aria-label="Rolar iniciativa com d20 e modificador de Destreza" title="Rolar iniciativa (d20 + modificador de Destreza)">🎲</button></div></div>
-                <label class="initiative-number"><span>PV atuais</span><input id="combatant-hp" name="hp" type="number" placeholder="—" min="0" max="9999" /></label>
-                <label class="initiative-number"><span>CA</span><input id="combatant-ac" name="ac" type="number" placeholder="—" min="0" max="99" /></label>
-                <button class="button button-primary add-combatant" type="submit">＋ Adicionar</button>
-              </form>
-              <p class="api-note">Escolha uma criatura do SRD 2014 ou de fontes abertas Open5e para preencher os dados. Passe o mouse ou foque o nome na iniciativa para consultar a ficha. As APIs não incluem necessariamente os monstros de publicações comerciais.</p>
-              <div class="initiative-list" id="initiative-list"></div>
-              <div class="initiative-empty" id="initiative-empty"><span>⚔</span><strong>A arena está em silêncio.</strong><p>Adicione combatentes para começar a organizar a iniciativa.</p></div>
-            </section>
-            <p class="api-note">A ordem de combate é salva localmente neste navegador.</p>
+                <div class="initiative-list" id="initiative-list"></div>
+                <div class="initiative-empty" id="initiative-empty"><span>⚔</span><strong>A arena está em silêncio.</strong><p>Adicione combatentes no painel “Adicionar combatente” para começar.</p></div>
+              </section>
+
+              <aside class="initiative-side">
+                <section class="panel side-panel">
+                  <h2 class="side-title"><span aria-hidden="true">＋</span> Adicionar combatente</h2>
+                  <form class="initiative-form" id="initiative-form">
+                    <div class="creature-search-field"><label for="combatant-name">Personagem ou criatura</label><div class="creature-input-wrap"><input id="combatant-name" name="name" placeholder="Ex.: Goblin, Lobo, Thorin..." required maxlength="48" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="creature-suggestions" aria-expanded="false" /><button class="monster-image-button" id="selected-creature-image" type="button" data-image-preview hidden>▧</button></div><div class="creature-suggestions" id="creature-suggestions" role="listbox" hidden></div><small class="input-hint" id="creature-search-status" role="status">Digite para buscar criaturas do SRD 2014 e Open5e.</small></div>
+                    <div class="initiative-score-field"><label for="combatant-score">Iniciativa</label><div class="initiative-score-control"><input id="combatant-score" name="score" type="number" step="any" placeholder="auto" min="-10" max="99" title="Em branco, criaturas com ficha rolam d20 + DES automaticamente" /><button class="icon-button initiative-roll" id="roll-initiative" type="button" aria-label="Rolar iniciativa com d20 e modificador de Destreza" title="Rolar iniciativa (d20 + modificador de Destreza)">🎲</button></div></div>
+                    <label class="initiative-number" title="Adiciona várias cópias numeradas (ex.: Goblin 1, Goblin 2...)"><span>Quantidade</span><input id="combatant-quantity" name="quantity" type="number" value="1" min="1" max="20" /></label>
+                    <label class="initiative-number"><span>PV</span><input id="combatant-hp" name="hp" type="number" placeholder="—" min="0" max="9999" /></label>
+                    <label class="initiative-number"><span>CA</span><input id="combatant-ac" name="ac" type="number" placeholder="—" min="0" max="99" /></label>
+                    <label class="pc-check"><input id="combatant-is-player" name="isPlayer" type="checkbox" /> <span>Personagem jogador <small>mantido ao encerrar o combate</small></span></label>
+                    <button class="button button-primary add-combatant" type="submit">＋ Adicionar à iniciativa</button>
+                  </form>
+                  <p class="side-note">Com a iniciativa em branco, cada cópia rola d20 + DES. Preenchida, o valor vale para o grupo todo.</p>
+                </section>
+
+                <section class="panel side-panel quick-spell-search">
+                  <label class="side-title" for="initiative-spell-search"><span aria-hidden="true">✧</span> Consulta rápida de magias</label>
+                  <div class="spell-input-wrap">
+                    <span class="search-icon" aria-hidden="true">⌕</span>
+                    <input id="initiative-spell-search" type="search" placeholder="Bola de fogo, escudo..." autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="initiative-spell-suggestions" aria-expanded="false" />
+                    <div class="spell-suggestions" id="initiative-spell-suggestions" role="listbox" hidden></div>
+                  </div>
+                  <small class="quick-spell-status" id="initiative-spell-status" role="status">Digite pelo menos 2 letras para abrir a ficha.</small>
+                </section>
+
+                <details class="panel side-panel rules-lookup" id="rules-lookup">
+                  <summary><span class="rules-lookup-icon" aria-hidden="true">§</span> Consultar regra <kbd>R</kbd></summary>
+                  <div class="spell-input-wrap">
+                    <span class="search-icon" aria-hidden="true">⌕</span>
+                    <input id="initiative-rule-search" type="search" placeholder="Agarrar, cobertura, queda..." autocomplete="off" aria-label="Buscar regra" aria-controls="initiative-rule-results" />
+                  </div>
+                  <div class="rule-results" id="initiative-rule-results" aria-live="polite"></div>
+                </details>
+
+                <section class="panel side-panel shortcut-hint">
+                  <h2 class="side-title">Atalhos e dicas</h2>
+                  <ul class="shortcut-list">
+                    <li><span><kbd>N</kbd><kbd>→</kbd></span> Próximo turno</li>
+                    <li><span><kbd>V</kbd><kbd>←</kbd></span> Turno anterior</li>
+                    <li><span><kbd>A</kbd></span> Adicionar combatente</li>
+                    <li><span><kbd>R</kbd></span> Consultar regra</li>
+                  </ul>
+                  <p class="side-note">Passe o mouse no nome de uma criatura para ver a ficha. PV temporários absorvem dano primeiro e criaturas abatidas são puladas. Tudo fica salvo neste navegador.</p>
+                </section>
+              </aside>
+            </div>
           </section>
 
           <section class="view" id="view-notes" data-title="Anotações" hidden>

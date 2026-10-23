@@ -803,22 +803,93 @@ const spellClassTranslations = {
   wizard: "Mago",
 };
 
+const ruleCategories = {
+  testes: "Testes",
+  acoes: "Ações em combate",
+  combate: "Combate",
+  dano: "Dano e cura",
+  magia: "Magia",
+  condicoes: "Condições",
+  exploracao: "Exploração e descanso",
+};
+
+// Resumos próprios das regras básicas de 2014, com distâncias em metros (1,5 m = 5 pés).
 const quickRules = [
-  { title: "Testes de atributo", category: "testes", tags: "perícia habilidade d20 CD dificuldade", summary: "Role 1d20 e some o modificador de atributo; se tiver proficiência aplicável, some também o bônus de proficiência. O resultado iguala ou supera a Classe de Dificuldade (CD) para ter sucesso." },
-  { title: "Classes de Dificuldade", category: "testes", tags: "CD fácil moderada difícil muito difícil", summary: "Referência rápida de CD: 5 fácil, 10 moderada, 15 difícil, 20 muito difícil e 25 quase impossível. O Mestre define a CD conforme a situação." },
-  { title: "Vantagem e desvantagem", category: "testes", tags: "d20 rolagem vantagem desvantagem", summary: "Role dois d20: com vantagem use o maior; com desvantagem use o menor. Se ambas se aplicarem ao mesmo teste, anulam-se. Fontes múltiplas não acumulam dados extras." },
-  { title: "Testes resistidos", category: "testes", tags: "disputa contestado agarrar furtividade", summary: "Os envolvidos fazem testes apropriados. O maior resultado vence; em empate, a situação permanece como estava antes da disputa." },
-  { title: "Iniciativa e turno", category: "combate", tags: "ordem combate iniciativa d20 destreza ação", summary: "No início do combate, cada participante rola iniciativa (1d20 + modificador de Destreza). Em seu turno, pode se mover até seu deslocamento e realizar uma ação; habilidades podem conceder ação bônus." },
-  { title: "Ataque de oportunidade", category: "combate", tags: "reação alcance sair movimento", summary: "Quando uma criatura visível sai do seu alcance usando o próprio movimento, você pode gastar sua reação para fazer um ataque corpo a corpo. Teleporte e deslocamento forçado normalmente não provocam esse ataque." },
-  { title: "Cobertura", category: "combate", tags: "meia cobertura tres quartos cobertura total CA destreza", summary: "Meia cobertura concede +2 na CA e nos testes de resistência de Destreza; três quartos concede +5. Cobertura total impede ser alvo direto de ataques e magias." },
-  { title: "Morte e estabilização", category: "combate", tags: "pontos de vida morte salvaguarda morte 0 PV", summary: "A 0 PV, faça uma salvaguarda contra a morte no início do turno: 10 ou mais é sucesso. Três sucessos estabilizam; três falhas causam morte. Um 1 natural conta como duas falhas; um 20 natural recupera 1 PV." },
-  { title: "Concentração", category: "magia", tags: "magia dano teste constituição CD10", summary: "Você só mantém uma magia de concentração por vez. Ao sofrer dano, faça um teste de resistência de Constituição com CD 10 ou metade do dano recebido, usando o maior valor; falhar encerra a magia." },
-  { title: "CD e ataque de magia", category: "magia", tags: "magia ataque acerto salvaguarda conjurador", summary: "CD para resistir às suas magias = 8 + bônus de proficiência + modificador do atributo de conjuração. Ataque mágico = bônus de proficiência + o mesmo modificador." },
-  { title: "Descanso curto", category: "exploracao", tags: "pausa cura dados de vida hora", summary: "Uma pausa de pelo menos 1 hora permite gastar Dados de Vida para recuperar PV. Algumas características de classe também são recuperadas após um descanso curto." },
-  { title: "Descanso longo", category: "exploracao", tags: "sono recuperar PV magia oito horas", summary: "Um descanso longo dura pelo menos 8 horas e recupera PV e recursos conforme as regras da classe. Um personagem precisa aguardar 24 horas entre descansos longos." },
-  { title: "Condição: agarrado", category: "combate", tags: "condição agarrado deslocamento grapple", summary: "O deslocamento da criatura agarrada torna-se 0 e ela não pode receber bônus de deslocamento. A condição termina se o agarrador ficar incapacitado ou se a criatura sair do alcance." },
-  { title: "Condição: caído", category: "combate", tags: "condição caído prone ataque corpo a corpo", summary: "A criatura caída rasteja ou gasta metade do deslocamento para se levantar. Ataques corpo a corpo contra ela têm vantagem; ataques à distância têm desvantagem." },
-  { title: "Condição: envenenado", category: "combate", tags: "condição veneno testes ataque", summary: "A criatura tem desvantagem em jogadas de ataque e testes de atributo enquanto a condição durar." },
+  // Testes
+  { title: "Testes de atributo", category: "testes", tags: "perícia habilidade d20 CD dificuldade proficiência", summary: "Role 1d20 e some o modificador do atributo; com proficiência na perícia ou ferramenta, some também o bônus de proficiência. Igualar ou superar a CD é sucesso." },
+  { title: "Classes de Dificuldade", category: "testes", tags: "CD fácil média moderada difícil muito difícil quase impossível", summary: "Referência para definir a CD de um teste.", points: ["Muito fácil: 5", "Fácil: 10", "Média: 15", "Difícil: 20", "Muito difícil: 25", "Quase impossível: 30"] },
+  { title: "Testes de resistência", category: "testes", tags: "salvaguarda resistir efeito magia veneno armadilha", summary: "Usados para resistir a magias, armadilhas e outros perigos: 1d20 + modificador do atributo pedido + bônus de proficiência, se proficiente naquela resistência. A CD vem do efeito (por exemplo, a CD de magia de quem conjurou)." },
+  { title: "Vantagem e desvantagem", category: "testes", tags: "d20 rolagem vantagem desvantagem dois dados", summary: "Role dois d20: com vantagem use o maior, com desvantagem o menor. Se as duas se aplicarem, elas se anulam, não importa quantas fontes existam de cada lado. Fontes múltiplas da mesma não acumulam." },
+  { title: "Testes resistidos", category: "testes", tags: "disputa contestado agarrar furtividade empate", summary: "Cada envolvido faz o teste apropriado e o maior resultado vence. Em empate, a situação continua como estava antes da disputa." },
+  { title: "Testes em grupo", category: "testes", tags: "grupo equipe metade todos furtividade sobrevivência", summary: "Quando o grupo tenta algo junto, todos rolam. Se pelo menos metade tiver sucesso, o grupo inteiro tem sucesso; caso contrário, o grupo falha." },
+  { title: "Percepção passiva", category: "testes", tags: "sabedoria percepção passiva notar escondido emboscada", summary: "Valor fixo usado quando ninguém rola: 10 + todos os modificadores do teste de Sabedoria (Percepção). Vantagem soma +5; desvantagem subtrai 5." },
+  { title: "Inspiração", category: "testes", tags: "inspiração recompensa interpretação vantagem", summary: "O Mestre concede inspiração por boa interpretação ou atitudes marcantes. Gaste-a para ter vantagem em uma jogada de ataque, teste de resistência ou teste de atributo. Um personagem tem no máximo uma inspiração por vez e pode passá-la a outro jogador." },
+
+  // Ações em combate
+  { title: "Seu turno", category: "acoes", tags: "turno ação movimento ação bônus reação interação objeto", summary: "Em cada turno você pode se mover até seu deslocamento e realizar uma ação, na ordem que quiser, podendo dividir o movimento antes e depois da ação.", points: ["Ação bônus: só se uma característica, magia ou regra conceder uma", "Reação: uma por rodada; volta no início do seu turno", "Interação gratuita: abrir uma porta ou sacar uma arma, uma vez por turno"] },
+  { title: "Ações disponíveis", category: "acoes", tags: "atacar conjurar disparada desengajar esquivar ajudar esconder preparar procurar usar objeto", summary: "As ações que qualquer criatura pode escolher em seu turno.", points: ["Atacar: um ataque corpo a corpo ou à distância (ou mais, com Ataque Extra)", "Conjurar uma magia com tempo de 1 ação", "Disparada: ganha deslocamento extra igual ao seu deslocamento", "Desengajar: seu movimento não provoca ataques de oportunidade neste turno", "Esquivar: ataques de quem você vê têm desvantagem contra você e você tem vantagem em resistências de DES", "Ajudar, Esconder, Preparar, Procurar e Usar um objeto"] },
+  { title: "Ajudar", category: "acoes", tags: "ajuda ação auxiliar aliado vantagem", summary: "Você auxilia um aliado: ele tem vantagem no próximo teste de atributo da tarefa em que você ajuda, ou no próximo ataque contra uma criatura a até 1,5 m de você, desde que ocorra antes do início do seu próximo turno." },
+  { title: "Esconder", category: "acoes", tags: "esconder furtividade escondido oculto percepção passiva", summary: "Faça um teste de Destreza (Furtividade) contra a Percepção passiva de quem procura por você. Não é possível se esconder de quem consegue vê-lo claramente. Atacar revela sua posição." },
+  { title: "Preparar", category: "acoes", tags: "preparar ação gatilho reação esperar", summary: "Escolha um gatilho perceptível e a ação (ou movimento) que fará em resposta. Quando o gatilho ocorrer, use sua reação para agir. Preparar uma magia exige concentração até liberá-la e gasta o espaço mesmo se não for usada." },
+  { title: "Ataque de oportunidade", category: "acoes", tags: "reação alcance sair movimento desengajar", summary: "Quando uma criatura hostil que você vê sai do seu alcance usando o próprio movimento, você pode gastar a reação para um ataque corpo a corpo contra ela. Teleporte, Desengajar e deslocamento forçado não provocam." },
+  { title: "Combate com duas armas", category: "acoes", tags: "duas armas leve ação bônus ataque segunda mão", summary: "Ao usar a ação Atacar com uma arma leve de corpo a corpo, você pode usar a ação bônus para atacar com outra arma leve na outra mão. Esse segundo ataque não soma o modificador de atributo ao dano, a menos que seja negativo." },
+  { title: "Agarrar", category: "acoes", tags: "agarrar manobra atletismo acrobacia escapar", summary: "Substitui um dos ataques da ação Atacar. O alvo pode ser no máximo uma categoria de tamanho maior e você precisa de uma mão livre. Faça Força (Atletismo) contra Força (Atletismo) ou Destreza (Acrobacia) do alvo; se vencer, ele fica agarrado. Escapar exige uma ação e a mesma disputa." },
+  { title: "Empurrar", category: "acoes", tags: "empurrar derrubar manobra atletismo caído", summary: "Substitui um dos ataques da ação Atacar contra alvo de até uma categoria maior. Força (Atletismo) contra Força (Atletismo) ou Destreza (Acrobacia) do alvo; se vencer, derruba-o (caído) ou o empurra 1,5 m para longe." },
+
+  // Combate
+  { title: "Iniciativa e surpresa", category: "combate", tags: "ordem combate iniciativa d20 destreza surpresa surpreso", summary: "No início do combate, todos rolam 1d20 + modificador de Destreza e agem do maior para o menor; o Mestre decide empates. Criaturas surpresas não se movem nem agem no primeiro turno e não podem reagir até o fim dele." },
+  { title: "Jogada de ataque", category: "combate", tags: "ataque acerto CA 20 natural 1 natural proficiência", summary: "1d20 + modificador do atributo + bônus de proficiência (se proficiente com a arma). Igualar ou superar a CA do alvo acerta. Um 20 natural sempre acerta e um 1 natural sempre erra." },
+  { title: "Acerto crítico", category: "combate", tags: "crítico 20 natural dano dobrado dados", summary: "Num 20 natural, role duas vezes todos os dados de dano do ataque (inclusive extras, como Ataque Furtivo) e some os modificadores uma única vez." },
+  { title: "Ataques à distância", category: "combate", tags: "distância alcance longo arco besta adjacente", summary: "Atacar além do alcance normal, até o alcance longo, impõe desvantagem; além dele não é possível. Também há desvantagem se uma criatura hostil que o veja e não esteja incapacitada estiver a até 1,5 m de você." },
+  { title: "Atacantes e alvos não vistos", category: "combate", tags: "invisível escuridão não visto vantagem desvantagem esconder", summary: "Atacar um alvo que você não vê impõe desvantagem (e você precisa adivinhar onde ele está). Se o alvo não vê você, você tem vantagem. Ao atacar, você revela sua posição, acertando ou não." },
+  { title: "Cobertura", category: "combate", tags: "meia cobertura três quartos cobertura total CA destreza", summary: "Obstáculos entre você e o atacante protegem; vale apenas o maior grau de cobertura.", points: ["Meia: +2 na CA e nas resistências de DES", "Três quartos: +5 na CA e nas resistências de DES", "Total: não pode ser alvo direto de ataques nem de magias"] },
+  { title: "Movimento e terreno difícil", category: "combate", tags: "deslocamento terreno difícil escalar nadar rastejar levantar", summary: "Você pode dividir o deslocamento ao longo do turno. Terreno difícil custa 1,5 m extra a cada 1,5 m. Escalar, nadar e rastejar também custam o dobro (o triplo em terreno difícil). Levantar-se de caído gasta metade do deslocamento." },
+  { title: "Espaço e criaturas", category: "combate", tags: "espaço tamanho atravessar aliado inimigo ocupar", summary: "Você pode atravessar o espaço de um aliado, mas não terminar o movimento nele. Só atravessa o espaço de um inimigo se ele for pelo menos duas categorias de tamanho maior ou menor; esse espaço conta como terreno difícil." },
+  { title: "Combate montado e submerso", category: "combate", tags: "montaria montar submerso água nadar", summary: "Montar ou desmontar gasta metade do deslocamento. Debaixo d'água, ataques corpo a corpo sem arma perfurante (adaga, lança, tridente, espada curta, azagaia) têm desvantagem; ataques à distância erram além do alcance normal e têm desvantagem dentro dele, exceto com bestas, redes e armas de arremesso como azagaias. Criaturas submersas têm resistência a dano de fogo." },
+
+  // Dano e cura
+  { title: "Resistência e vulnerabilidade", category: "dano", tags: "resistência vulnerabilidade imunidade metade dobro tipo de dano", summary: "Resistência reduz o dano daquele tipo à metade; vulnerabilidade o dobra; imunidade o anula. Aplique depois de todos os outros modificadores. Várias resistências ao mesmo tipo contam como uma só." },
+  { title: "Pontos de vida temporários", category: "dano", tags: "PV temporários temp absorver não acumulam", summary: "Funcionam como um amortecedor: o dano é tirado deles primeiro. Não se acumulam (escolha manter os atuais ou os novos), não são cura e não contam para trazer alguém de 0 PV. Duram até acabarem ou até um descanso longo." },
+  { title: "Cura", category: "dano", tags: "cura curar recuperar PV máximo 0 PV consciência", summary: "Some os PV recuperados aos atuais, sem passar do máximo. Qualquer cura em uma criatura com 0 PV a deixa consciente novamente." },
+  { title: "Caindo a 0 PV", category: "dano", tags: "0 PV inconsciente morte morrendo dano massivo", summary: "A 0 PV você cai inconsciente e começa a fazer testes contra a morte. Se o dano que levou você a 0 PV, menos os PV que você tinha, igualar ou superar seu máximo de PV, a morte é instantânea (dano massivo)." },
+  { title: "Testes contra a morte", category: "dano", tags: "morte salvaguarda morrendo 0 PV estabilizar 20 natural 1 natural", summary: "No início de cada turno a 0 PV, role 1d20 sem modificadores: 10 ou mais é sucesso.", points: ["Três sucessos: fica estável; três falhas: morre", "1 natural conta como duas falhas", "20 natural: recupera 1 PV", "Sofrer dano a 0 PV é uma falha (duas se for crítico)", "Os contadores zeram ao recuperar PV ou ficar estável"] },
+  { title: "Estabilizar e nocautear", category: "dano", tags: "estabilizar medicina CD 10 nocaute nocautear não letal", summary: "Uma ação e um teste de Sabedoria (Medicina) CD 10 estabilizam uma criatura a 0 PV; estável, ela recupera 1 PV após 1d4 horas. Ao reduzir alguém a 0 PV com ataque corpo a corpo, você pode deixá-lo inconsciente e estável em vez de matá-lo." },
+  { title: "Dano de queda", category: "dano", tags: "queda cair altura contundente", summary: "A criatura sofre 1d6 de dano contundente a cada 3 m de queda, até o máximo de 20d6, e aterrissa caída, a menos que evite o dano." },
+
+  // Magia
+  { title: "CD e ataque de magia", category: "magia", tags: "magia ataque acerto salvaguarda conjurador atributo conjuração", summary: "CD para resistir às suas magias = 8 + bônus de proficiência + modificador do atributo de conjuração. Ataque mágico = bônus de proficiência + o mesmo modificador." },
+  { title: "Concentração", category: "magia", tags: "concentração magia dano teste constituição CD 10 incapacitado", summary: "Você mantém só uma magia de concentração por vez; conjurar outra encerra a primeira. Ao sofrer dano, faça um teste de resistência de Constituição com CD 10 ou metade do dano, o que for maior. Ficar incapacitado ou morrer também encerra a magia." },
+  { title: "Espaços de magia e círculos superiores", category: "magia", tags: "espaço de magia slot nível superior círculo truque descanso", summary: "Conjurar uma magia gasta um espaço do círculo dela ou maior; em espaço maior, muitas magias ficam mais fortes. Truques não gastam espaços e melhoram com o nível do personagem. Os espaços voltam no descanso longo (bruxos recuperam no descanso curto)." },
+  { title: "Magia como ação bônus", category: "magia", tags: "ação bônus magia truque mesmo turno", summary: "Se conjurar uma magia como ação bônus, você só pode conjurar outra magia no mesmo turno se for um truque com tempo de conjuração de 1 ação." },
+  { title: "Componentes", category: "magia", tags: "verbal somático material foco bolsa de componentes", summary: "V exige falar em voz alta; S exige uma mão livre para gestos; M exige os materiais indicados. Uma bolsa de componentes ou foco de conjuração substitui materiais sem custo; os que têm preço ou são consumidos precisam estar com você." },
+  { title: "Rituais", category: "magia", tags: "ritual dez minutos sem espaço", summary: "Magias com o descritor ritual podem ser conjuradas sem gastar espaço, levando 10 minutos a mais. Exige uma característica que permita conjurar rituais." },
+  { title: "Combinando efeitos mágicos", category: "magia", tags: "acumular mesma magia sobrepor efeitos", summary: "Efeitos de magias diferentes se somam enquanto as durações se sobrepõem. A mesma magia conjurada várias vezes no mesmo alvo não acumula: vale o efeito mais forte enquanto durar." },
+
+  // Condições
+  { title: "Agarrado", category: "condicoes", tags: "condição agarrado grappled deslocamento", summary: "Deslocamento 0, sem bônus de deslocamento. Termina se quem agarra ficar incapacitado ou se um efeito tirar a criatura do alcance dele." },
+  { title: "Amedrontado", category: "condicoes", tags: "condição amedrontado medo frightened", summary: "Desvantagem em testes de atributo e jogadas de ataque enquanto a fonte do medo estiver à vista. Não pode se aproximar dela voluntariamente." },
+  { title: "Atordoado", category: "condicoes", tags: "condição atordoado stunned incapacitado", summary: "Incapacitado, não pode se mover e só fala com dificuldade. Falha automaticamente em resistências de FOR e DES. Ataques contra ele têm vantagem." },
+  { title: "Caído", category: "condicoes", tags: "condição caído prone derrubado rastejar levantar", summary: "Só pode rastejar, a menos que gaste metade do deslocamento para se levantar. Tem desvantagem nas jogadas de ataque. Ataques contra ele têm vantagem se o atacante estiver a até 1,5 m; caso contrário, desvantagem." },
+  { title: "Cego", category: "condicoes", tags: "condição cego blinded visão", summary: "Não enxerga e falha automaticamente em testes que dependem da visão. Ataques contra ele têm vantagem; os ataques dele têm desvantagem." },
+  { title: "Contido", category: "condicoes", tags: "condição contido restrained teia preso", summary: "Deslocamento 0. Ataques contra ele têm vantagem; os ataques dele têm desvantagem. Tem desvantagem em resistências de Destreza." },
+  { title: "Enfeitiçado", category: "condicoes", tags: "condição enfeitiçado charmed encantado", summary: "Não pode atacar quem o enfeitiçou nem escolhê-lo como alvo de habilidades ou efeitos mágicos nocivos. Quem enfeitiçou tem vantagem em testes de interação social com ele." },
+  { title: "Envenenado", category: "condicoes", tags: "condição envenenado veneno poisoned", summary: "Desvantagem em jogadas de ataque e testes de atributo." },
+  { title: "Exaustão", category: "condicoes", tags: "condição exaustão exausto cansaço níveis fome marcha forçada", summary: "Tem seis níveis cumulativos. Um descanso longo, com comida e água, reduz um nível.", points: ["1: desvantagem em testes de atributo", "2: deslocamento reduzido à metade", "3: desvantagem em ataques e testes de resistência", "4: máximo de PV reduzido à metade", "5: deslocamento 0", "6: morte"] },
+  { title: "Incapacitado", category: "condicoes", tags: "condição incapacitado incapacitated", summary: "Não pode realizar ações nem reações." },
+  { title: "Inconsciente", category: "condicoes", tags: "condição inconsciente unconscious desmaiado 0 PV", summary: "Incapacitado, não se move nem fala e não percebe o ambiente; larga o que segura e fica caído. Falha automaticamente em resistências de FOR e DES. Ataques contra ele têm vantagem, e acertos de atacantes a até 1,5 m são críticos." },
+  { title: "Invisível", category: "condicoes", tags: "condição invisível invisible esconder", summary: "Não pode ser visto sem magia ou sentido especial e conta como densamente obscurecido para se esconder; ainda pode ser localizado por barulho ou rastros. Ataques contra ele têm desvantagem; os dele têm vantagem." },
+  { title: "Paralisado", category: "condicoes", tags: "condição paralisado paralyzed imobilizar pessoa", summary: "Incapacitado, sem se mover nem falar. Falha automaticamente em resistências de FOR e DES. Ataques contra ele têm vantagem, e acertos de atacantes a até 1,5 m são críticos." },
+  { title: "Petrificado", category: "condicoes", tags: "condição petrificado pedra petrified", summary: "Transformado em substância inanimada (geralmente pedra): incapacitado, sem se mover nem falar e alheio ao redor. Ataques contra ele têm vantagem; falha em resistências de FOR e DES; tem resistência a todo dano e imunidade a veneno e doenças." },
+  { title: "Surdo", category: "condicoes", tags: "condição surdo deafened audição", summary: "Não ouve e falha automaticamente em testes que dependem da audição." },
+
+  // Exploração e descanso
+  { title: "Descanso curto", category: "exploracao", tags: "descanso curto pausa cura dados de vida hora", summary: "Pelo menos 1 hora de atividade leve. Ao final, você pode gastar Dados de Vida: role cada um e some o modificador de Constituição para recuperar PV. Algumas características voltam também." },
+  { title: "Descanso longo", category: "exploracao", tags: "descanso longo sono recuperar PV dados de vida oito horas", summary: "Pelo menos 8 horas, com no máximo 2 horas de vigília leve. Ao final, recupera todos os PV e até metade do total de Dados de Vida (mínimo 1).", points: ["Exige ao menos 1 PV no início", "1 hora de caminhada, combate ou conjuração interrompe e obriga a recomeçar", "Só um descanso longo a cada 24 horas"] },
+  { title: "Luz e visão", category: "exploracao", tags: "luz penumbra escuridão visão no escuro obscurecido", summary: "Área levemente obscurecida (penumbra, neblina) dá desvantagem em Percepção baseada em visão. Área densamente obscurecida (escuridão) deixa a criatura efetivamente cega ali dentro. Visão no escuro trata penumbra como luz plena e escuridão como penumbra, sem cores." },
+  { title: "Ritmo de viagem", category: "exploracao", tags: "viagem ritmo rápido normal lento marcha forçada distância", summary: "Distâncias por minuto, hora e dia de 8 horas de marcha.", points: ["Rápido: 120 m/min, 6 km/h, 48 km/dia; −5 na Percepção passiva", "Normal: 90 m/min, 4,5 km/h, 36 km/dia", "Lento: 60 m/min, 3 km/h, 27 km/dia; permite usar Furtividade", "Marcha forçada: cada hora além de 8 exige resistência de CON (CD 10 + 1 por hora extra) ou 1 nível de exaustão"] },
+  { title: "Saltos", category: "exploracao", tags: "salto pular distância altura força corrida", summary: "Com corrida de pelo menos 3 m, o salto em distância alcança 30 cm por ponto de Força e o salto em altura, 90 cm + 30 cm × modificador de Força. Sem corrida, ambos caem pela metade. Cada 30 cm saltado gasta 30 cm de deslocamento." },
+  { title: "Sufocamento", category: "exploracao", tags: "sufocar respirar fôlego afogar submerso", summary: "Uma criatura prende a respiração por 1 + modificador de CON minutos (mínimo 30 segundos). Depois disso, sobrevive um número de rodadas igual ao modificador de CON (mínimo 1); no início do turno seguinte cai a 0 PV e começa a morrer." },
+  { title: "Comida e água", category: "exploracao", tags: "comida água fome sede ração exaustão", summary: "Um personagem precisa de 0,5 kg de comida e cerca de 4 litros de água por dia. Aguenta 3 + modificador de CON dias sem comer (mínimo 1); depois, ganha 1 nível de exaustão por dia. Bebendo só metade da água, faça uma resistência de CON CD 15 ou ganhe 1 nível de exaustão; com menos que isso, o nível é automático." },
 ];
 
 const labels = {
@@ -844,7 +915,7 @@ const conditionDefs = {
   paralyzed: ["Paralisado", "Incapacitado, sem se mover ou falar. Falha em salvaguardas de FOR e DES; ataques corpo a corpo a até 1,5 m são críticos."],
   petrified: ["Petrificado", "Transformado em pedra: incapacitado, resistente a todo dano e imune a veneno e doenças."],
   poisoned: ["Envenenado", "Desvantagem em jogadas de ataque e testes de atributo."],
-  prone: ["Caído", "Só rasteja. Ataques corpo a corpo contra ele têm vantagem; à distância, desvantagem. Ele tem desvantagem nos ataques."],
+  prone: ["Caído", "Só rasteja; levantar custa metade do deslocamento. Tem desvantagem nos ataques. Ataques contra ele a até 1,5 m têm vantagem; de mais longe, desvantagem."],
   restrained: ["Contido", "Deslocamento 0. Ataques contra ele têm vantagem; os dele e suas salvaguardas de DES têm desvantagem."],
   stunned: ["Atordoado", "Incapacitado, sem se mover e só fala com dificuldade. Falha em salvaguardas de FOR e DES; ataques contra ele têm vantagem."],
   unconscious: ["Inconsciente", "Incapacitado, caído e alheio ao redor. Falha em salvaguardas de FOR e DES; ataques corpo a corpo a até 1,5 m são críticos."],
@@ -913,15 +984,17 @@ async function requestApi(path) {
   const url = normalizedPath.startsWith("http")
     ? normalizedPath
     : `https://www.dnd5eapi.co${normalizedPath}`;
-  return requestExternalJson(url, "www.dnd5eapi.co");
+  // A API traduz nomes conforme o idioma do navegador; pedimos inglês porque
+  // as traduções e descrições do app usam os nomes originais como chave.
+  return requestExternalJson(url, "www.dnd5eapi.co", { "Accept-Language": "en" });
 }
 
-async function requestExternalJson(url, allowedHost) {
+async function requestExternalJson(url, allowedHost, headers = {}) {
   const parsedUrl = new URL(url);
   if (parsedUrl.protocol !== "https:" || parsedUrl.hostname !== allowedHost) {
     throw new Error("A URL retornada pela API não pertence à fonte esperada.");
   }
-  const response = await fetch(parsedUrl.href);
+  const response = await fetch(parsedUrl.href, { headers });
   if (!response.ok) {
     throw new Error(`A API respondeu com status ${response.status}.`);
   }
@@ -943,8 +1016,13 @@ function resolveSearchTerm(query, translations) {
   return query;
 }
 
+function capitalizeFirst(text) {
+  const value = String(text ?? "");
+  return value.charAt(0).toLocaleUpperCase("pt-BR") + value.slice(1);
+}
+
 function getLocalizedName(name, translations) {
-  return translations[normalizeSearchTerm(name)]?.[0] || name;
+  return capitalizeFirst(translations[normalizeSearchTerm(name)]?.[0] || name);
 }
 
 function localizeSpellValue(value) {
@@ -969,11 +1047,11 @@ function localizeSpellValue(value) {
 function getLocalizedMonsterName(name) {
   const normalizedName = normalizeSearchTerm(name);
   const exactTranslation = monsterTranslations[normalizedName]?.[0];
-  if (exactTranslation) return exactTranslation;
-  return String(name).replace(/[(),']/g, "").split(/\s+/)
+  if (exactTranslation) return capitalizeFirst(exactTranslation);
+  return capitalizeFirst(String(name).replace(/[(),']/g, "").split(/\s+/)
     .map((part) => monsterNameParts[normalizeSearchTerm(part)] ?? part)
     .filter(Boolean)
-    .join(" ");
+    .join(" "));
 }
 
 function getMonsterSearchName(query) {
@@ -1311,13 +1389,24 @@ function escapeHtml(value) {
   })[character]);
 }
 
-function showToast(message) {
+function showToast(message, action = null) {
   const region = document.querySelector("#toast-region");
   const toast = document.createElement("div");
   toast.className = "toast";
   toast.textContent = message;
+  if (action) {
+    const button = document.createElement("button");
+    button.className = "toast-action";
+    button.type = "button";
+    button.textContent = action.label;
+    button.addEventListener("click", () => {
+      toast.remove();
+      action.onClick();
+    });
+    toast.append(button);
+  }
   region.append(toast);
-  window.setTimeout(() => toast.remove(), 3200);
+  window.setTimeout(() => toast.remove(), action ? 7000 : 3200);
 }
 
 function navigate(viewName, { updateHistory = true, scroll = true } = {}) {
@@ -1337,7 +1426,10 @@ function navigate(viewName, { updateHistory = true, scroll = true } = {}) {
     else button.removeAttribute("aria-current");
   });
   document.querySelector("#breadcrumb-current").textContent = labels[viewName];
-  if (viewName === "dashboard") renderDashboardCampaign();
+  if (viewName === "dashboard") {
+    renderDashboardCampaign();
+    renderDashboardCombat();
+  }
   if (viewName === "spells" && !state.spells.results.length) loadSpells();
   if (viewName === "tricks" && !state.tricks.results.length) loadTricks();
   if (viewName === "monsters" && !state.monsters.results.length) loadMonsters();
@@ -1380,9 +1472,9 @@ function renderSpells() {
   const list = document.querySelector("#spell-list");
   list.innerHTML = state.spells.results.slice(0, state.spells.visibleCount).map((spell) => `
     <button class="resource-card" type="button" data-resource="spells" data-index="${state.spells.results.indexOf(spell)}">
-      <div class="resource-card-top"><h3>${escapeHtml(getLocalizedName(spell.name, spellTranslations))}</h3><span class="resource-level">MAGIA</span></div>
-      <p>Nome original: ${escapeHtml(spell.name)} · D&D 5e 2014.</p>
-      <div class="resource-meta"><span>Consultar descrição, círculo e componentes →</span></div>
+      <div class="resource-card-top"><h3>${escapeHtml(getLocalizedName(spell.name, spellTranslations))}</h3></div>
+      <p>${getLocalizedName(spell.name, spellTranslations) !== spell.name ? escapeHtml(spell.name) : "Magia · SRD 2014"}</p>
+      <div class="resource-meta"><span>Ver círculo, alcance e descrição</span><span aria-hidden="true">→</span></div>
     </button>`).join("");
 }
 
@@ -1429,9 +1521,9 @@ function renderTricks() {
     .slice(0, state.tricks.visibleCount)
     .map((spell, index) => `
       <button class="resource-card" type="button" data-resource="tricks" data-index="${index}">
-        <div class="resource-card-top"><h3>${escapeHtml(getLocalizedName(spell.name, spellTranslations))}</h3><span class="resource-level">TRUQUE</span></div>
-        <p>D&D 5e 2014 · Nome original na API: ${escapeHtml(spell.name)}.</p>
-        <div class="resource-meta"><span>Ver descrição em português e detalhes →</span></div>
+        <div class="resource-card-top"><h3>${escapeHtml(getLocalizedName(spell.name, spellTranslations))}</h3></div>
+        <p>${getLocalizedName(spell.name, spellTranslations) !== spell.name ? escapeHtml(spell.name) : "Truque · SRD 2014"}</p>
+        <div class="resource-meta"><span>Ver descrição em português</span><span aria-hidden="true">→</span></div>
       </button>`).join("");
 }
 
@@ -1528,11 +1620,10 @@ function renderMonsters() {
       <div class="resource-card-top">
         <button class="resource-card-open monster-card-name" type="button" data-resource="monsters" data-index="${index}"><h3>${escapeHtml(getLocalizedMonsterName(monster.name))}</h3></button>
         <button class="monster-image-button" type="button" data-image-preview data-image-url="${escapeHtml(getMonsterImageUrl(monster) || state.monsters.imageCache.get(getMonsterImageCacheKey(monster)) || "")}" data-image-alt="Imagem de ${escapeHtml(getLocalizedMonsterName(monster.name))}" aria-label="Ampliar imagem de ${escapeHtml(getLocalizedMonsterName(monster.name))}" title="Ampliar imagem" ${getMonsterImageUrl(monster) || state.monsters.imageCache.get(getMonsterImageCacheKey(monster)) ? "" : "hidden"}>▧</button>
-        <span class="resource-level monster-badge">CRIATURA</span>
       </div>
       <button class="resource-card-details" type="button" data-resource="monsters" data-index="${index}">
-        <p>${escapeHtml(monster.document__title || "D&D 5e 2014 · SRD")} · nome original: ${escapeHtml(monster.name)}.</p>
-        <span class="resource-meta">${escapeHtml(monster.type ? getLocalizedMonsterType(monster.type) : "Consultar ficha e estatísticas")} →</span>
+        <p>${getLocalizedMonsterName(monster.name) !== monster.name ? `${escapeHtml(monster.name)} · ` : ""}${escapeHtml(monster.document__title || "SRD 2014")}</p>
+        <span class="resource-meta"><span>${escapeHtml(monster.type ? getLocalizedMonsterType(monster.type) : "Ver ficha e estatísticas")}</span><span aria-hidden="true">→</span></span>
       </button>
     </article>`).join("");
 }
@@ -1669,24 +1760,58 @@ function setupSearch(inputId, category, delay = 350) {
   });
 }
 
+// Cada palavra da busca precisa aparecer na regra; resultados com a busca no título vêm primeiro.
+function searchRules(rawQuery, category = "") {
+  const terms = normalizeSearchTerm(rawQuery).split(/\s+/).filter(Boolean);
+  return quickRules
+    .filter((rule) => !category || rule.category === category)
+    .map((rule) => {
+      const title = normalizeSearchTerm(rule.title);
+      const text = normalizeSearchTerm(`${rule.title} ${rule.tags} ${rule.summary} ${(rule.points || []).join(" ")}`);
+      if (!terms.every((term) => text.includes(term))) return null;
+      return { rule, score: terms.filter((term) => title.includes(term)).length };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => entry.rule);
+}
+
+function renderRuleBody(rule) {
+  return `<p>${escapeHtml(rule.summary)}</p>${rule.points ? `<ul>${rule.points.map((point) => `<li>${escapeHtml(point)}</li>`).join("")}</ul>` : ""}`;
+}
+
+function showRuleDetails(rule) {
+  const dialog = document.querySelector("#detail-dialog");
+  setMonsterImageButton(document.querySelector("#detail-image-button"), "", "");
+  document.querySelector("#detail-kicker").textContent = `REGRA · ${ruleCategories[rule.category]}`;
+  document.querySelector("#detail-title").textContent = rule.title;
+  document.querySelector("#detail-chips").innerHTML = "";
+  document.querySelector("#detail-body").innerHTML = renderRuleBody(rule);
+  document.querySelector(".dialog-source").textContent = "Resumo próprio baseado nas regras básicas de 2014";
+  if (!dialog.open) dialog.showModal();
+}
+
+const SUGGESTED_RULES = ["Concentração", "Ataque de oportunidade", "Cobertura", "Agarrar", "Testes contra a morte"];
+
+function renderInitiativeRuleResults() {
+  const query = document.querySelector("#initiative-rule-search").value;
+  const results = query.trim()
+    ? searchRules(query).slice(0, 6)
+    : SUGGESTED_RULES.map((title) => quickRules.find((rule) => rule.title === title)).filter(Boolean);
+  const container = document.querySelector("#initiative-rule-results");
+  container.innerHTML = results.length
+    ? `${query.trim() ? "" : `<small class="rule-results-label">Mais consultadas</small>`}${results.map((rule) => `
+      <button class="rule-result" type="button" data-rule-title="${escapeHtml(rule.title)}"><span>${escapeHtml(rule.title)}</span><small>${escapeHtml(ruleCategories[rule.category])}</small></button>`).join("")}`
+    : `<small class="rule-results-label">Nenhuma regra encontrada.</small>`;
+}
+
 function renderRules() {
-  const query = normalizeSearchTerm(document.querySelector("#rules-search").value);
-  const category = document.querySelector("#rules-category").value;
-  const filteredRules = quickRules.filter((rule) => {
-    const matchesCategory = !category || rule.category === category;
-    const searchableText = normalizeSearchTerm(`${rule.title} ${rule.tags} ${rule.summary}`);
-    return matchesCategory && searchableText.includes(query);
-  });
+  const filteredRules = searchRules(document.querySelector("#rules-search").value, document.querySelector("#rules-category").value);
   document.querySelector("#rules-list").innerHTML = filteredRules.map((rule) => `
     <article class="rule-card">
-      <span class="rule-category">${escapeHtml({
-        testes: "TESTES",
-        combate: "COMBATE",
-        magia: "MAGIA",
-        exploracao: "EXPLORAÇÃO",
-      }[rule.category])}</span>
+      <span class="rule-category">${escapeHtml(ruleCategories[rule.category])}</span>
       <h2>${escapeHtml(rule.title)}</h2>
-      <p>${escapeHtml(rule.summary)}</p>
+      ${renderRuleBody(rule)}
     </article>`).join("");
   document.querySelector("#rules-count").textContent = `${filteredRules.length} ${filteredRules.length === 1 ? "regra" : "regras"}`;
   document.querySelector("#rules-feedback").textContent = filteredRules.length
@@ -1759,43 +1884,85 @@ async function searchInitiativeSpells(query) {
   }
 }
 
+function getTurnOrder() {
+  // Empates na iniciativa são decididos pelo modificador de Destreza.
+  return [...state.combatants].sort((a, b) => (
+    b.score - a.score
+    || (getDexterityModifier(b.monster) ?? 0) - (getDexterityModifier(a.monster) ?? 0)
+  ));
+}
+
+function getHpStatus(combatant) {
+  const hp = Number(combatant.hp);
+  if (combatant.hp === "" || combatant.hp == null || !combatant.maxHp) return null;
+  const ratio = hp / combatant.maxHp;
+  if (hp === 0) return { key: "down", label: combatant.isPlayer ? "Caído" : "Abatido", ratio };
+  if (ratio <= 0.25) return { key: "critical", label: "Crítico", ratio };
+  if (ratio <= 0.5) return { key: "bloodied", label: "Sangrando", ratio };
+  return { key: "healthy", label: "", ratio };
+}
+
 function renderInitiative() {
   const list = document.querySelector("#initiative-list");
   const empty = document.querySelector("#initiative-empty");
   document.querySelector("#round-number").textContent = String(state.round).padStart(2, "0");
   empty.hidden = state.combatants.length > 0;
-  const orderedCombatants = [...state.combatants].sort((a, b) => b.score - a.score);
+  const orderedCombatants = getTurnOrder();
   if (!orderedCombatants.some((combatant) => combatant.id === state.currentCombatantId)) {
     state.currentCombatantId = orderedCombatants[0]?.id || null;
   }
+  const current = orderedCombatants.find((combatant) => combatant.id === state.currentCombatantId);
+  document.querySelector("#current-turn").hidden = !current;
+  document.querySelector("#current-turn-name").textContent = current?.name || "";
+  document.querySelector("#end-combat").disabled = !state.combatants.length;
   list.innerHTML = orderedCombatants
-    .map((combatant, index) => `
-      <div class="combatant-row ${combatant.id === state.currentCombatantId ? "is-current" : ""} ${combatant.hp === "0" ? "is-down" : ""}">
-        <span class="turn-index">${String(index + 1).padStart(2, "0")}</span>
+    .map((combatant, index) => {
+      const id = escapeHtml(combatant.id);
+      const status = getHpStatus(combatant);
+      const tempHp = Number(combatant.tempHp) || 0;
+      return `
+      <div class="combatant-row ${combatant.id === state.currentCombatantId ? "is-current" : ""} ${combatant.hp === "0" ? "is-down" : ""} ${combatant.isPlayer ? "is-player" : ""}" data-combatant-row="${id}">
+        <label class="combatant-score" title="Iniciativa (clique para editar)"><span class="turn-index">${index + 1}º</span><input class="combatant-score-input" type="number" step="any" min="-10" max="99" value="${escapeHtml(combatant.score)}" data-score-for="${id}" aria-label="Iniciativa de ${escapeHtml(combatant.name)}" /></label>
+        <div class="combatant-main">
         <span class="combatant-name-wrap">
           ${combatant.monster
-              ? `<span class="combatant-name-with-image"><button class="combatant-name creature-name" type="button" aria-describedby="creature-tip-${escapeHtml(combatant.id)}">${escapeHtml(combatant.name)}</button>${getMonsterImageUrl(combatant.monster) ? `<button class="monster-image-button" type="button" data-image-preview data-image-url="${escapeHtml(getMonsterImageUrl(combatant.monster))}" data-image-alt="Imagem de ${escapeHtml(combatant.name)}" aria-label="Ampliar imagem de ${escapeHtml(combatant.name)}" title="Ampliar imagem">▧</button>` : ""}</span>${buildMonsterTooltip(combatant.monster, `creature-tip-${escapeHtml(combatant.id)}`)}`
-            : `<span class="combatant-name">${escapeHtml(combatant.name)}</span>`}
+              ? `<span class="combatant-name-with-image"><button class="combatant-name creature-name" type="button" aria-describedby="creature-tip-${id}">${escapeHtml(combatant.name)}</button>${combatant.isPlayer ? `<span class="pc-badge" title="Personagem jogador">PJ</span>` : ""}${getMonsterImageUrl(combatant.monster) ? `<button class="monster-image-button" type="button" data-image-preview data-image-url="${escapeHtml(getMonsterImageUrl(combatant.monster))}" data-image-alt="Imagem de ${escapeHtml(combatant.name)}" aria-label="Ampliar imagem de ${escapeHtml(combatant.name)}" title="Ampliar imagem">▧</button>` : ""}</span>${buildMonsterTooltip(combatant.monster, `creature-tip-${id}`)}`
+            : `<span class="combatant-name-with-image"><span class="combatant-name">${escapeHtml(combatant.name)}</span>${combatant.isPlayer ? `<span class="pc-badge" title="Personagem jogador">PJ</span>` : ""}</span>`}
         </span>
-        <span class="combatant-score">⚔ ${escapeHtml(combatant.score)} iniciativa</span>
-        <label class="combatant-hp-control"><input class="combatant-hp-input" type="number" min="0" max="${combatant.maxHp || 9999}" value="${escapeHtml(combatant.hp)}" data-hp-for="${escapeHtml(combatant.id)}" aria-label="Pontos de vida atuais de ${escapeHtml(combatant.name)}" /><span>${combatant.maxHp ? `/ ${escapeHtml(combatant.maxHp)}` : ""} PV</span></label>
-        <span class="combatant-ac">${combatant.ac === "" || combatant.ac == null ? "— CA" : `CA ${escapeHtml(combatant.ac)}`}</span>
-        <button class="icon-button remove-combatant" type="button" data-remove="${escapeHtml(combatant.id)}" aria-label="Remover ${escapeHtml(combatant.name)}">×</button>
+        ${renderConditionChips(combatant)}
+        </div>
+        <span class="combatant-hp-cell">
+          <label class="combatant-hp-control"><input class="combatant-hp-input" type="number" min="0" max="${combatant.maxHp || 9999}" value="${escapeHtml(combatant.hp)}" data-hp-for="${id}" aria-label="Pontos de vida atuais de ${escapeHtml(combatant.name)}" /><span>${combatant.maxHp ? `/ ${escapeHtml(combatant.maxHp)}` : ""} PV${tempHp ? ` <b class="temp-hp-tag" title="PV temporários">+${tempHp}</b>` : ""}</span></label>
+          ${status ? `<span class="hp-bar hp-${status.key}" title="${Math.round(status.ratio * 100)}% dos PV"><span style="width: ${Math.round(status.ratio * 100)}%"></span></span>${status.label ? `<small class="hp-status hp-${status.key}">${status.label}</small>` : ""}` : ""}
+        </span>
+        <span class="combatant-ac" title="Classe de Armadura"><small>CA</small><b>${combatant.ac === "" || combatant.ac == null ? "—" : escapeHtml(combatant.ac)}</b></span>
+        <button class="icon-button remove-combatant" type="button" data-remove="${id}" aria-label="Remover ${escapeHtml(combatant.name)}" title="Remover">×</button>
         ${renderCombatantExtras(combatant)}
-      </div>`).join("");
+      </div>`;
+    }).join("");
+}
+
+function getActiveConditions(combatant) {
+  return Array.isArray(combatant.conditions) ? combatant.conditions.filter((key) => conditionDefs[key]) : [];
+}
+
+function renderConditionChips(combatant) {
+  const id = escapeHtml(combatant.id);
+  const chips = getActiveConditions(combatant).map((key) => `<button class="condition-chip ${key === "concentrating" ? "is-concentration" : ""}" type="button" data-condition-remove="${id}" data-condition-key="${key}" title="${escapeHtml(conditionDefs[key][1])} (clique para remover)">${escapeHtml(conditionDefs[key][0])} <span aria-hidden="true">×</span></button>`).join("");
+  return chips ? `<div class="combatant-conditions">${chips}</div>` : "";
 }
 
 function renderCombatantExtras(combatant) {
   const id = escapeHtml(combatant.id);
-  const active = Array.isArray(combatant.conditions) ? combatant.conditions.filter((key) => conditionDefs[key]) : [];
-  const chips = active.map((key) => `<button class="condition-chip" type="button" data-condition-remove="${id}" data-condition-key="${key}" title="${escapeHtml(conditionDefs[key][1])} (clique para remover)">${escapeHtml(conditionDefs[key][0])} ×</button>`).join("");
+  const active = getActiveConditions(combatant);
   const options = Object.entries(conditionDefs)
     .filter(([key]) => !active.includes(key))
     .map(([key, [label]]) => `<option value="${key}">${escapeHtml(label)}</option>`).join("");
   return `<div class="combatant-extras">
-    <form class="hp-quick" data-hp-quick="${id}"><input class="hp-quick-input" type="text" inputmode="numeric" autocomplete="off" placeholder="−8 ou +5" aria-label="Dano ou cura de ${escapeHtml(combatant.name)}" /><button class="mini-button" type="submit" title="Número com − ou sem sinal causa dano; com + cura">Aplicar</button></form>
+    <form class="hp-quick" data-hp-quick="${id}"><input class="hp-quick-input" type="text" inputmode="numeric" autocomplete="off" placeholder="−8 ou +5" aria-label="Dano ou cura de ${escapeHtml(combatant.name)}" /><button class="mini-button" type="submit" data-hp-mode="damage" title="Causa dano (PV temporários absorvem primeiro)">Dano</button><button class="mini-button" type="submit" data-hp-mode="heal" title="Cura até o máximo de PV">Cura</button></form>
+    <label class="temp-hp-field" title="PV temporários absorvem dano antes dos PV atuais">Temp <input class="hp-quick-input temp-hp-input" type="number" min="0" max="999" value="${Number(combatant.tempHp) || ""}" placeholder="0" data-temp-for="${id}" aria-label="PV temporários de ${escapeHtml(combatant.name)}" /></label>
     <button class="mini-button" type="button" data-duplicate="${id}" title="Duplicar combatente">⧉ Duplicar</button>
-    ${chips}
+    <button class="mini-button ${combatant.isPlayer ? "is-on" : ""}" type="button" data-toggle-player="${id}" aria-pressed="${Boolean(combatant.isPlayer)}" title="PJs são mantidos ao encerrar o combate e nunca são pulados">${combatant.isPlayer ? "✓ PJ" : "Marcar PJ"}</button>
     <select class="condition-add" data-condition-for="${id}" aria-label="Adicionar condição a ${escapeHtml(combatant.name)}"><option value="">＋ Condição</option>${options}</select>
   </div>`;
 }
@@ -1806,22 +1973,54 @@ function getDexterityModifier(monster) {
   return Math.floor((Number(dexterity) - 10) / 2);
 }
 
+function rollD20() {
+  return Math.floor(Math.random() * 20) + 1;
+}
+
 function persistCombatants() {
   const saved = saveStored("cronica-combatants", state.combatants);
   try {
     if (state.currentCombatantId) localStorage.setItem("cronica-current-combatant", state.currentCombatantId);
     else localStorage.removeItem("cronica-current-combatant");
+    localStorage.setItem("cronica-round", String(state.round));
   } catch (error) {
     console.error("Não foi possível salvar o turno atual.", error);
   }
   return saved;
 }
 
-function applyQuickHp(combatantId, rawValue) {
+function snapshotInitiative() {
+  return JSON.parse(JSON.stringify({ combatants: state.combatants, round: state.round, currentCombatantId: state.currentCombatantId }));
+}
+
+function restoreInitiative(snapshot) {
+  state.combatants = snapshot.combatants;
+  state.round = snapshot.round;
+  state.currentCombatantId = snapshot.currentCombatantId;
+  persistCombatants();
+  renderInitiative();
+  showToast("Alteração desfeita.");
+}
+
+// Atualiza os PV e mantém as condições coerentes: PJ a 0 PV fica inconsciente e perde a concentração.
+function setCombatantHp(combatant, next) {
+  const wasDown = combatant.hp === "0";
+  const conditions = Array.isArray(combatant.conditions) ? combatant.conditions : [];
+  combatant.hp = String(next);
+  if (next === 0) {
+    combatant.conditions = conditions.filter((key) => key !== "concentrating");
+    if (combatant.isPlayer && !combatant.conditions.includes("unconscious")) combatant.conditions.push("unconscious");
+  } else if (wasDown) {
+    combatant.conditions = conditions.filter((key) => key !== "unconscious");
+  }
+  return conditions.includes("concentrating");
+}
+
+function applyQuickHp(combatantId, rawValue, mode = null) {
   const combatant = state.combatants.find((item) => item.id === combatantId);
   const match = String(rawValue).trim().match(/^([+\-−–]?)\s*(\d{1,4})$/);
   if (!combatant || !match) {
-    showToast("Use um número, por exemplo −8 para dano ou +5 para cura.");
+    showToast("Use um número, por exemplo 8 e depois Dano ou Cura (ou −8 / +5).");
     return;
   }
   if (combatant.hp === "" || combatant.hp == null) {
@@ -1829,30 +2028,51 @@ function applyQuickHp(combatantId, rawValue) {
     return;
   }
   const amount = Number(match[2]);
-  const delta = match[1] === "+" ? amount : -amount;
-  const maxHp = combatant.maxHp || 9999;
-  const next = Math.min(maxHp, Math.max(0, Number(combatant.hp) + delta));
-  combatant.hp = String(next);
+  const healing = mode ? mode === "heal" : match[1] === "+";
+  const current = Number(combatant.hp);
+  if (healing) {
+    const next = Math.min(combatant.maxHp || 9999, current + amount);
+    setCombatantHp(combatant, next);
+    persistCombatants();
+    renderInitiative();
+    showToast(`${combatant.name}: +${amount} → ${next} PV.`);
+    return;
+  }
+  const tempHp = Number(combatant.tempHp) || 0;
+  const absorbed = Math.min(tempHp, amount);
+  combatant.tempHp = tempHp - absorbed;
+  const next = Math.max(0, current - (amount - absorbed));
+  const wasConcentrating = setCombatantHp(combatant, next);
   persistCombatants();
   renderInitiative();
-  showToast(`${combatant.name}: ${delta < 0 ? "−" : "+"}${amount} → ${next} PV${next === 0 ? " (caído a 0)" : ""}.`);
+  const parts = [`${combatant.name}: −${amount} → ${next} PV`];
+  if (absorbed) parts.push(`${absorbed} absorvido(s) pelos PV temporários`);
+  if (next === 0) parts.push(combatant.isPlayer ? "caído e inconsciente" : "abatido");
+  if (wasConcentrating && next === 0) parts.push("concentração perdida");
+  else if (wasConcentrating && amount > 0) parts.push(`teste de concentração: CON CD ${Math.max(10, Math.floor(amount / 2))}`);
+  showToast(`${parts.join(" · ")}.`);
+}
+
+function getNextCopyNumber(base) {
+  const numbers = state.combatants
+    .filter((item) => item.name.replace(/\s+\d+$/, "") === base)
+    .map((item) => Number(item.name.slice(base.length).trim()) || 1);
+  return numbers.length ? Math.max(...numbers) + 1 : 1;
 }
 
 function duplicateCombatant(combatantId) {
   const source = state.combatants.find((item) => item.id === combatantId);
   if (!source) return;
   const base = source.name.replace(/\s+\d+$/, "");
-  const numbers = state.combatants
-    .filter((item) => item.name === base || item.name.replace(/\s+\d+$/, "") === base)
-    .map((item) => Number(item.name.slice(base.length).trim()) || 1);
   const modifier = getDexterityModifier(source.monster);
-  const score = modifier === null ? source.score : Math.floor(Math.random() * 20) + 1 + modifier;
+  const score = modifier === null ? source.score : rollD20() + modifier;
   state.combatants.push({
     ...source,
     id: crypto.randomUUID(),
-    name: `${base} ${Math.max(...numbers) + 1}`,
+    name: `${base} ${getNextCopyNumber(base)}`,
     score,
     hp: source.maxHp != null ? String(source.maxHp) : source.hp,
+    tempHp: 0,
     conditions: [],
   });
   persistCombatants();
@@ -1861,15 +2081,15 @@ function duplicateCombatant(combatantId) {
 }
 
 function rollAllMonsterInitiative() {
-  const monsters = state.combatants.filter((item) => getDexterityModifier(item.monster) !== null);
+  const monsters = state.combatants.filter((item) => !item.isPlayer && getDexterityModifier(item.monster) !== null);
   if (!monsters.length) {
     showToast("Nenhum combatente com ficha de criatura para rolar.");
     return;
   }
   monsters.forEach((item) => {
-    item.score = Math.floor(Math.random() * 20) + 1 + getDexterityModifier(item.monster);
+    item.score = rollD20() + getDexterityModifier(item.monster);
   });
-  state.currentCombatantId = [...state.combatants].sort((a, b) => b.score - a.score)[0].id;
+  state.currentCombatantId = getTurnOrder()[0].id;
   persistCombatants();
   renderInitiative();
   showToast(`Iniciativa rolada para ${monsters.length} ${monsters.length === 1 ? "criatura" : "criaturas"}.`);
@@ -1882,6 +2102,82 @@ function toggleCondition(combatantId, key, enable) {
   combatant.conditions = enable ? [...new Set([...current, key])] : current.filter((item) => item !== key);
   persistCombatants();
   renderInitiative();
+}
+
+// Avança ou volta o turno; criaturas abatidas (não PJs) são puladas.
+function stepTurn(direction) {
+  const order = getTurnOrder();
+  if (!order.length) {
+    showToast("Adicione combatentes antes de avançar o turno.");
+    return;
+  }
+  const isSkippable = (combatant) => !combatant.isPlayer && combatant.hp === "0";
+  const canSkip = order.some((combatant) => !isSkippable(combatant));
+  let index = Math.max(0, order.findIndex((combatant) => combatant.id === state.currentCombatantId));
+  let round = state.round;
+  let steps = 0;
+  do {
+    if (direction > 0) {
+      index += 1;
+      if (index >= order.length) {
+        index = 0;
+        round += 1;
+      }
+    } else {
+      if (index === 0) {
+        if (round === 1) {
+          showToast("Este já é o primeiro turno do combate.");
+          return;
+        }
+        index = order.length;
+        round -= 1;
+      }
+      index -= 1;
+    }
+    steps += 1;
+  } while (canSkip && isSkippable(order[index]) && steps < order.length);
+  state.round = round;
+  state.currentCombatantId = order[index].id;
+  persistCombatants();
+  renderInitiative();
+  document.querySelector("#initiative-list .is-current")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
+function removeCombatant(combatantId) {
+  const combatant = state.combatants.find((item) => item.id === combatantId);
+  if (!combatant) return;
+  const snapshot = snapshotInitiative();
+  if (state.currentCombatantId === combatantId) {
+    // O turno passa para o próximo da ordem, e não volta ao topo.
+    const order = getTurnOrder();
+    const index = order.findIndex((item) => item.id === combatantId);
+    state.currentCombatantId = order.length > 1 ? order[(index + 1) % order.length].id : null;
+  }
+  state.combatants = state.combatants.filter((item) => item.id !== combatantId);
+  persistCombatants();
+  renderInitiative();
+  showToast(`${combatant.name} removido.`, { label: "Desfazer", onClick: () => restoreInitiative(snapshot) });
+}
+
+function endCombat() {
+  if (!state.combatants.length) return;
+  const players = state.combatants.filter((item) => item.isPlayer);
+  const removed = state.combatants.length - players.length;
+  const message = players.length
+    ? `Encerrar o combate? ${removed} criatura(s) serão removidas e ${players.length} PJ(s) mantidos.`
+    : "Encerrar o combate? Todos os combatentes serão removidos (nenhum está marcado como PJ).";
+  if (!window.confirm(message)) return;
+  const snapshot = snapshotInitiative();
+  state.combatants = players.map((item) => ({
+    ...item,
+    tempHp: 0,
+    conditions: (item.conditions || []).filter((key) => key === "unconscious" && item.hp === "0"),
+  }));
+  state.round = 1;
+  state.currentCombatantId = getTurnOrder()[0]?.id || null;
+  persistCombatants();
+  renderInitiative();
+  showToast("Combate encerrado.", { label: "Desfazer", onClick: () => restoreInitiative(snapshot) });
 }
 
 function campaignOptions(selected, extra = []) {
@@ -2128,7 +2424,9 @@ async function importAllData(file) {
         score: Number(item.score),
         hp: text(item.hp, 6),
         maxHp: Number.isFinite(Number(item.maxHp)) && item.maxHp !== null ? Number(item.maxHp) : null,
+        tempHp: Math.min(999, Math.max(0, Math.floor(Number(item.tempHp)) || 0)),
         ac: text(item.ac, 6),
+        isPlayer: item.isPlayer === true,
         conditions: Array.isArray(item.conditions) ? item.conditions.filter((key) => conditionDefs[key]) : [],
         monster: item.monster && typeof item.monster === "object" ? item.monster : null,
       }));
@@ -2199,8 +2497,6 @@ function renderDashboardCampaign() {
   document.querySelector("#dashboard-campaign-meta").innerHTML = campaign
     ? "<span>◷ &nbsp;Campanha ativa</span>"
     : "<span>＋ &nbsp;Crie sua primeira campanha</span>";
-  document.querySelector("#dashboard-active-name").textContent = name;
-  document.querySelector("#dashboard-active-description").textContent = description;
   document.querySelector("#dashboard-activity-name").textContent = name;
   document.querySelector("#dashboard-activity-description").textContent = campaign
     ? "Última campanha aberta"
@@ -2215,6 +2511,19 @@ function renderDashboardCampaign() {
     ? `linear-gradient(100deg, #151519e8 0%, #17171bd9 55%, #17191ecc 100%), url("${imageUrl}")`
     : "";
   document.querySelector("#dashboard-banner-art").hidden = Boolean(imageUrl);
+}
+
+function renderDashboardCombat() {
+  const order = getTurnOrder();
+  const current = order.find((combatant) => combatant.id === state.currentCombatantId);
+  const players = order.filter((combatant) => combatant.isPlayer).length;
+  document.querySelector("#dashboard-round").textContent = order.length ? String(state.round) : "—";
+  document.querySelector("#dashboard-combat-title").textContent = current
+    ? `Vez de ${current.name}`
+    : "Nenhum combate em andamento";
+  document.querySelector("#dashboard-combat-detail").textContent = order.length
+    ? `${order.length} combatente(s) · ${players} PJ(s) · ${order.length - players} criatura(s)`
+    : "Adicione combatentes na iniciativa para começar.";
 }
 
 function setActiveCampaign(campaign) {
@@ -2472,34 +2781,57 @@ function setupEvents() {
   });
   document.querySelector("#initiative-form").addEventListener("submit", (event) => {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const combatant = {
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const name = String(formData.get("name")).trim();
+    const rawScore = String(formData.get("score") ?? "").trim();
+    const monster = state.initiative.selectedMonster;
+    const modifier = getDexterityModifier(monster);
+    const quantity = Math.min(20, Math.max(1, Math.floor(Number(formData.get("quantity")) || 1)));
+    if (!name) return;
+    if (rawScore === "" && modifier === null) {
+      showToast("Informe a iniciativa ou use o 🎲 para rolar.");
+      document.querySelector("#combatant-score").focus();
+      return;
+    }
+    if (rawScore !== "" && !Number.isFinite(Number(rawScore))) return;
+    const hp = String(formData.get("hp") || "");
+    // O máximo de PV é o valor informado; sem ele, usa a média da ficha.
+    const maxHp = hp !== "" ? Number(hp) : (monster?.hit_points ?? null);
+    const base = quantity > 1 ? name.slice(0, 44) : name;
+    let number = quantity > 1 ? getNextCopyNumber(base) : 0;
+    const added = Array.from({ length: quantity }, () => ({
       id: crypto.randomUUID(),
-      name: String(formData.get("name")).trim(),
-      score: Number(formData.get("score")),
-      hp: String(formData.get("hp") || ""),
-      maxHp: state.initiative.selectedMonster?.hit_points ?? null,
+      name: quantity > 1 ? `${base} ${number++}` : name,
+      // Iniciativa em branco: cada cópia rola d20 + DES. Preenchida: vale para o grupo todo.
+      score: rawScore === "" ? rollD20() + modifier : Number(rawScore),
+      hp: hp !== "" ? hp : (maxHp != null ? String(maxHp) : ""),
+      maxHp,
+      tempHp: 0,
       ac: String(formData.get("ac") || ""),
-      monster: state.initiative.selectedMonster,
-    };
-    if (!combatant.name || !Number.isFinite(combatant.score)) return;
-    state.combatants.push(combatant);
-    if (!state.currentCombatantId) state.currentCombatantId = combatant.id;
-    if (saveStored("cronica-combatants", state.combatants)) {
-      localStorage.setItem("cronica-current-combatant", state.currentCombatantId);
-      event.currentTarget.reset();
+      isPlayer: formData.get("isPlayer") === "on",
+      conditions: [],
+      monster,
+    }));
+    state.combatants.push(...added);
+    if (!state.currentCombatantId) state.currentCombatantId = getTurnOrder()[0].id;
+    if (persistCombatants()) {
+      if (rawScore === "") showToast(`${quantity > 1 ? `${quantity} combatentes adicionados` : `${name} adicionado`} com iniciativa rolada (d20 ${modifier >= 0 ? "+" : "−"} ${Math.abs(modifier)}).`);
+      form.reset();
+      setMonsterImageButton(document.querySelector("#selected-creature-image"), "", "");
       state.initiative.selectedMonster = null;
       state.initiative.creatures = [];
       renderCreatureSuggestions([]);
       document.querySelector("#creature-search-status").textContent = "Digite para buscar criaturas do SRD 2014 e Open5e.";
       renderInitiative();
+      document.querySelector("#combatant-name").focus();
     }
   });
   document.querySelector("#roll-initiative").addEventListener("click", () => {
     const dexterityValue = state.initiative.selectedMonster?.dexterity;
     const hasDexterity = dexterityValue !== null && dexterityValue !== undefined && Number.isFinite(Number(dexterityValue));
     const modifier = hasDexterity ? Math.floor((Number(dexterityValue) - 10) / 2) : 0;
-    const roll = Math.floor(Math.random() * 20) + 1;
+    const roll = rollD20();
     document.querySelector("#combatant-score").value = String(roll + modifier);
     if (hasDexterity) {
       showToast(`Iniciativa: ${roll} no d20 ${modifier >= 0 ? "+" : "−"} ${Math.abs(modifier)} de Destreza.`);
@@ -2509,53 +2841,54 @@ function setupEvents() {
       showToast("Iniciativa rolada sem modificador. Selecione uma criatura para somar a Destreza.");
     }
   });
-  document.querySelector("#initiative-list").addEventListener("click", (event) => {
-    const removeButton = event.target.closest("[data-remove]");
-    if (!removeButton) return;
-    state.combatants = state.combatants.filter((combatant) => combatant.id !== removeButton.dataset.remove);
-    if (state.currentCombatantId === removeButton.dataset.remove) state.currentCombatantId = null;
-    saveStored("cronica-combatants", state.combatants);
-    if (state.currentCombatantId) localStorage.setItem("cronica-current-combatant", state.currentCombatantId);
-    else localStorage.removeItem("cronica-current-combatant");
-    renderInitiative();
-  });
-  document.querySelector("#initiative-list").addEventListener("change", (event) => {
-    const hpInput = event.target.closest("[data-hp-for]");
-    if (!hpInput) return;
-    const combatant = state.combatants.find((item) => item.id === hpInput.dataset.hpFor);
-    const hp = Number(hpInput.value);
-    if (!combatant || !Number.isInteger(hp) || hp < 0 || hp > (combatant.maxHp || 9999)) {
-      hpInput.value = combatant?.hp ?? "";
-      showToast("Informe pontos de vida dentro do limite permitido.");
-      return;
-    }
-    combatant.hp = String(hp);
-    saveStored("cronica-combatants", state.combatants);
-    renderInitiative();
-  });
-  document.querySelector("#next-turn").addEventListener("click", () => {
-    if (!state.combatants.length) {
-      showToast("Adicione combatentes antes de avançar o turno.");
-      return;
-    }
-    const sorted = [...state.combatants].sort((a, b) => b.score - a.score);
-    const currentIndex = Math.max(0, sorted.findIndex((combatant) => combatant.id === state.currentCombatantId));
-    const nextIndex = (currentIndex + 1) % sorted.length;
-    state.currentCombatantId = sorted[nextIndex].id;
-    if (nextIndex === 0) state.round += 1;
-    saveStored("cronica-combatants", state.combatants);
-    localStorage.setItem("cronica-round", String(state.round));
-    localStorage.setItem("cronica-current-combatant", state.currentCombatantId);
-    renderInitiative();
-  });
+  document.querySelector("#next-turn").addEventListener("click", () => stepTurn(1));
+  document.querySelector("#previous-turn").addEventListener("click", () => stepTurn(-1));
+  document.querySelector("#end-combat").addEventListener("click", endCombat);
   document.querySelector("#reset-initiative").addEventListener("click", () => {
     state.round = 1;
-    state.currentCombatantId = [...state.combatants].sort((a, b) => b.score - a.score)[0]?.id || null;
-    localStorage.setItem("cronica-round", "1");
-    if (state.currentCombatantId) localStorage.setItem("cronica-current-combatant", state.currentCombatantId);
-    else localStorage.removeItem("cronica-current-combatant");
+    state.currentCombatantId = getTurnOrder()[0]?.id || null;
+    persistCombatants();
     renderInitiative();
     showToast("Rodada reiniciada.");
+  });
+  document.addEventListener("keydown", (event) => {
+    if (document.querySelector("#view-initiative").hidden || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName) || document.querySelector("dialog[open]")) return;
+    const key = event.key.toLowerCase();
+    if (key === "n" || key === "arrowright") {
+      event.preventDefault();
+      stepTurn(1);
+    } else if (key === "v" || key === "arrowleft") {
+      event.preventDefault();
+      stepTurn(-1);
+    } else if (key === "a") {
+      event.preventDefault();
+      document.querySelector("#combatant-name").focus();
+    } else if (key === "r") {
+      event.preventDefault();
+      document.querySelector("#rules-lookup").open = true;
+      document.querySelector("#initiative-rule-search").focus();
+    }
+  });
+  const rulesLookup = document.querySelector("#rules-lookup");
+  rulesLookup.addEventListener("toggle", () => {
+    if (!rulesLookup.open) return;
+    renderInitiativeRuleResults();
+    document.querySelector("#initiative-rule-search").focus();
+  });
+  document.querySelector("#initiative-rule-search").addEventListener("input", renderInitiativeRuleResults);
+  document.querySelector("#initiative-rule-search").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      document.querySelector("#initiative-rule-results [data-rule-title]")?.click();
+    } else if (event.key === "Escape") {
+      rulesLookup.open = false;
+    }
+  });
+  document.querySelector("#initiative-rule-results").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-rule-title]");
+    const rule = button && quickRules.find((item) => item.title === button.dataset.ruleTitle);
+    if (rule) showRuleDetails(rule);
   });
   document.querySelector("#save-note").addEventListener("click", saveCurrentNote);
   document.querySelector("#delete-note").addEventListener("click", deleteCurrentNote);
@@ -2606,17 +2939,63 @@ function setupEvents() {
     const form = event.target.closest("[data-hp-quick]");
     if (!form) return;
     event.preventDefault();
-    applyQuickHp(form.dataset.hpQuick, form.querySelector("input").value);
+    // Enter no campo usa o sinal digitado; os botões Dano/Cura definem o modo.
+    applyQuickHp(form.dataset.hpQuick, form.querySelector("input").value, event.submitter?.dataset.hpMode || null);
   });
   initiativeList.addEventListener("click", (event) => {
+    const removeButton = event.target.closest("[data-remove]");
+    if (removeButton) removeCombatant(removeButton.dataset.remove);
     const duplicate = event.target.closest("[data-duplicate]");
     if (duplicate) duplicateCombatant(duplicate.dataset.duplicate);
     const chip = event.target.closest("[data-condition-remove]");
     if (chip) toggleCondition(chip.dataset.conditionRemove, chip.dataset.conditionKey, false);
+    const playerToggle = event.target.closest("[data-toggle-player]");
+    if (playerToggle) {
+      const combatant = state.combatants.find((item) => item.id === playerToggle.dataset.togglePlayer);
+      if (!combatant) return;
+      combatant.isPlayer = !combatant.isPlayer;
+      persistCombatants();
+      renderInitiative();
+    }
   });
   initiativeList.addEventListener("change", (event) => {
     const select = event.target.closest("[data-condition-for]");
     if (select && select.value) toggleCondition(select.dataset.conditionFor, select.value, true);
+    const hpInput = event.target.closest("[data-hp-for]");
+    if (hpInput) {
+      const combatant = state.combatants.find((item) => item.id === hpInput.dataset.hpFor);
+      const hp = Number(hpInput.value);
+      if (!combatant || hpInput.value === "" || !Number.isInteger(hp) || hp < 0 || hp > (combatant.maxHp || 9999)) {
+        hpInput.value = combatant?.hp ?? "";
+        showToast("Informe pontos de vida dentro do limite permitido.");
+        return;
+      }
+      setCombatantHp(combatant, hp);
+      persistCombatants();
+      renderInitiative();
+    }
+    const scoreInput = event.target.closest("[data-score-for]");
+    if (scoreInput) {
+      const combatant = state.combatants.find((item) => item.id === scoreInput.dataset.scoreFor);
+      const score = Number(scoreInput.value);
+      if (!combatant || scoreInput.value === "" || !Number.isFinite(score) || score < -10 || score > 99) {
+        scoreInput.value = combatant?.score ?? "";
+        showToast("Informe uma iniciativa entre −10 e 99.");
+        return;
+      }
+      combatant.score = score;
+      persistCombatants();
+      renderInitiative();
+    }
+    const tempInput = event.target.closest("[data-temp-for]");
+    if (tempInput) {
+      const combatant = state.combatants.find((item) => item.id === tempInput.dataset.tempFor);
+      if (!combatant) return;
+      // PV temporários não se acumulam: o novo valor substitui o anterior.
+      combatant.tempHp = Math.min(999, Math.max(0, Math.floor(Number(tempInput.value)) || 0));
+      persistCombatants();
+      renderInitiative();
+    }
   });
   document.querySelectorAll("#new-campaign, #new-campaign-card").forEach((button) => button.addEventListener("click", () => openCampaignEditor()));
   document.querySelector("#campaign-background").addEventListener("change", updateCampaignImageField);
