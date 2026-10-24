@@ -1389,6 +1389,20 @@ function escapeHtml(value) {
   })[character]);
 }
 
+// Ícone do sprite SVG embutido no index.html (símbolos "i-<nome>").
+function icon(name, className = "icon") {
+  return `<svg class="${className}" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
+}
+
+// Gira o d20 do botão a cada rolagem; reinicia a animação se clicar de novo.
+function spinDice(button) {
+  const dice = button?.querySelector(".dice-icon");
+  if (!dice) return;
+  dice.classList.remove("is-rolling");
+  void dice.getBoundingClientRect();
+  dice.classList.add("is-rolling");
+}
+
 function showToast(message, action = null) {
   const region = document.querySelector("#toast-region");
   const toast = document.createElement("div");
@@ -1474,7 +1488,7 @@ function renderSpells() {
     <button class="resource-card" type="button" data-resource="spells" data-index="${state.spells.results.indexOf(spell)}">
       <div class="resource-card-top"><h3>${escapeHtml(getLocalizedName(spell.name, spellTranslations))}</h3></div>
       <p>${getLocalizedName(spell.name, spellTranslations) !== spell.name ? escapeHtml(spell.name) : "Magia · SRD 2014"}</p>
-      <div class="resource-meta"><span>Ver círculo, alcance e descrição</span><span aria-hidden="true">→</span></div>
+      <div class="resource-meta"><span>Ver círculo, alcance e descrição</span>${icon("arrow-right")}</div>
     </button>`).join("");
 }
 
@@ -1523,7 +1537,7 @@ function renderTricks() {
       <button class="resource-card" type="button" data-resource="tricks" data-index="${index}">
         <div class="resource-card-top"><h3>${escapeHtml(getLocalizedName(spell.name, spellTranslations))}</h3></div>
         <p>${getLocalizedName(spell.name, spellTranslations) !== spell.name ? escapeHtml(spell.name) : "Truque · SRD 2014"}</p>
-        <div class="resource-meta"><span>Ver descrição em português</span><span aria-hidden="true">→</span></div>
+        <div class="resource-meta"><span>Ver descrição em português</span>${icon("arrow-right")}</div>
       </button>`).join("");
 }
 
@@ -1623,7 +1637,7 @@ function renderMonsters() {
       </div>
       <button class="resource-card-details" type="button" data-resource="monsters" data-index="${index}">
         <p>${getLocalizedMonsterName(monster.name) !== monster.name ? `${escapeHtml(monster.name)} · ` : ""}${escapeHtml(monster.document__title || "SRD 2014")}</p>
-        <span class="resource-meta"><span>${escapeHtml(monster.type ? getLocalizedMonsterType(monster.type) : "Ver ficha e estatísticas")}</span><span aria-hidden="true">→</span></span>
+        <span class="resource-meta"><span>${escapeHtml(monster.type ? getLocalizedMonsterType(monster.type) : "Ver ficha e estatísticas")}</span>${icon("arrow-right")}</span>
       </button>
     </article>`).join("");
 }
@@ -1732,8 +1746,8 @@ async function showResourceDetails(category, index, resourceOverride = null) {
       const sourceUrl = getSafeExternalUrl(detail.document__url);
       const licenseUrl = getSafeExternalUrl(detail.document__license_url);
       const sourceLinks = [
-        sourceUrl ? `<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">Fonte ↗</a>` : "",
-        licenseUrl ? `<a href="${escapeHtml(licenseUrl)}" target="_blank" rel="noopener noreferrer">Licença ↗</a>` : "",
+        sourceUrl ? `<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">Fonte ${icon("arrow-up-right")}</a>` : "",
+        licenseUrl ? `<a href="${escapeHtml(licenseUrl)}" target="_blank" rel="noopener noreferrer">Licença ${icon("arrow-up-right")}</a>` : "",
       ].filter(Boolean).join(" · ");
       body.innerHTML = `${imageMarkup}${description}<p><strong>Classe de Armadura:</strong> ${escapeHtml(armor)} · <strong>Pontos de Vida:</strong> ${escapeHtml(detail.hit_points)} (${escapeHtml(detail.hit_dice)})</p><p><strong>Deslocamento:</strong> ${escapeHtml(getLocalizedMovement(detail.speed) || "—")}</p><p><strong>Atributos:</strong> ${escapeHtml(abilities)}</p>${detail.languages ? `<p><strong>Idiomas:</strong> ${escapeHtml(detail.languages)}</p>` : ""}${actionGroups}${sourceLinks ? `<p>${sourceLinks}</p>` : ""}`;
     }
@@ -1926,7 +1940,7 @@ function renderInitiative() {
         <div class="combatant-main">
         <span class="combatant-name-wrap">
           ${combatant.monster
-              ? `<span class="combatant-name-with-image"><button class="combatant-name creature-name" type="button" aria-describedby="creature-tip-${id}">${escapeHtml(combatant.name)}</button>${combatant.isPlayer ? `<span class="pc-badge" title="Personagem jogador">PJ</span>` : ""}${getMonsterImageUrl(combatant.monster) ? `<button class="monster-image-button" type="button" data-image-preview data-image-url="${escapeHtml(getMonsterImageUrl(combatant.monster))}" data-image-alt="Imagem de ${escapeHtml(combatant.name)}" aria-label="Ampliar imagem de ${escapeHtml(combatant.name)}" title="Ampliar imagem">▧</button>` : ""}</span>${buildMonsterTooltip(combatant.monster, `creature-tip-${id}`)}`
+              ? `<span class="combatant-name-with-image"><button class="combatant-name creature-name" type="button" aria-describedby="creature-tip-${id}">${escapeHtml(combatant.name)}</button>${combatant.isPlayer ? `<span class="pc-badge" title="Personagem jogador">PJ</span>` : ""}${getMonsterImageUrl(combatant.monster) ? `<button class="monster-image-button" type="button" data-image-preview data-image-url="${escapeHtml(getMonsterImageUrl(combatant.monster))}" data-image-alt="Imagem de ${escapeHtml(combatant.name)}" aria-label="Ampliar imagem de ${escapeHtml(combatant.name)}" title="Ampliar imagem">${icon("image")}</button>` : ""}</span>${buildMonsterTooltip(combatant.monster, `creature-tip-${id}`)}`
             : `<span class="combatant-name-with-image"><span class="combatant-name">${escapeHtml(combatant.name)}</span>${combatant.isPlayer ? `<span class="pc-badge" title="Personagem jogador">PJ</span>` : ""}</span>`}
         </span>
         ${renderConditionChips(combatant)}
@@ -1936,7 +1950,7 @@ function renderInitiative() {
           ${status ? `<span class="hp-bar hp-${status.key}" title="${Math.round(status.ratio * 100)}% dos PV"><span style="width: ${Math.round(status.ratio * 100)}%"></span></span>${status.label ? `<small class="hp-status hp-${status.key}">${status.label}</small>` : ""}` : ""}
         </span>
         <span class="combatant-ac" title="Classe de Armadura"><small>CA</small><b>${combatant.ac === "" || combatant.ac == null ? "—" : escapeHtml(combatant.ac)}</b></span>
-        <button class="icon-button remove-combatant" type="button" data-remove="${id}" aria-label="Remover ${escapeHtml(combatant.name)}" title="Remover">×</button>
+        <button class="icon-button remove-combatant" type="button" data-remove="${id}" aria-label="Remover ${escapeHtml(combatant.name)}" title="Remover">${icon("x")}</button>
         ${renderCombatantExtras(combatant)}
       </div>`;
     }).join("");
@@ -1948,7 +1962,7 @@ function getActiveConditions(combatant) {
 
 function renderConditionChips(combatant) {
   const id = escapeHtml(combatant.id);
-  const chips = getActiveConditions(combatant).map((key) => `<button class="condition-chip ${key === "concentrating" ? "is-concentration" : ""}" type="button" data-condition-remove="${id}" data-condition-key="${key}" title="${escapeHtml(conditionDefs[key][1])} (clique para remover)">${escapeHtml(conditionDefs[key][0])} <span aria-hidden="true">×</span></button>`).join("");
+  const chips = getActiveConditions(combatant).map((key) => `<button class="condition-chip ${key === "concentrating" ? "is-concentration" : ""}" type="button" data-condition-remove="${id}" data-condition-key="${key}" title="${escapeHtml(conditionDefs[key][1])} (clique para remover)">${escapeHtml(conditionDefs[key][0])} ${icon("x")}</button>`).join("");
   return chips ? `<div class="combatant-conditions">${chips}</div>` : "";
 }
 
@@ -1961,9 +1975,9 @@ function renderCombatantExtras(combatant) {
   return `<div class="combatant-extras">
     <form class="hp-quick" data-hp-quick="${id}"><input class="hp-quick-input" type="text" inputmode="numeric" autocomplete="off" placeholder="−8 ou +5" aria-label="Dano ou cura de ${escapeHtml(combatant.name)}" /><button class="mini-button" type="submit" data-hp-mode="damage" title="Causa dano (PV temporários absorvem primeiro)">Dano</button><button class="mini-button" type="submit" data-hp-mode="heal" title="Cura até o máximo de PV">Cura</button></form>
     <label class="temp-hp-field" title="PV temporários absorvem dano antes dos PV atuais">Temp <input class="hp-quick-input temp-hp-input" type="number" min="0" max="999" value="${Number(combatant.tempHp) || ""}" placeholder="0" data-temp-for="${id}" aria-label="PV temporários de ${escapeHtml(combatant.name)}" /></label>
-    <button class="mini-button" type="button" data-duplicate="${id}" title="Duplicar combatente">⧉ Duplicar</button>
-    <button class="mini-button ${combatant.isPlayer ? "is-on" : ""}" type="button" data-toggle-player="${id}" aria-pressed="${Boolean(combatant.isPlayer)}" title="PJs são mantidos ao encerrar o combate e nunca são pulados">${combatant.isPlayer ? "✓ PJ" : "Marcar PJ"}</button>
-    <select class="condition-add" data-condition-for="${id}" aria-label="Adicionar condição a ${escapeHtml(combatant.name)}"><option value="">＋ Condição</option>${options}</select>
+    <button class="mini-button" type="button" data-duplicate="${id}" title="Duplicar combatente">${icon("copy")} Duplicar</button>
+    <button class="mini-button ${combatant.isPlayer ? "is-on" : ""}" type="button" data-toggle-player="${id}" aria-pressed="${Boolean(combatant.isPlayer)}" title="PJs são mantidos ao encerrar o combate e nunca são pulados">${combatant.isPlayer ? `${icon("check")} PJ` : "Marcar PJ"}</button>
+    <select class="condition-add" data-condition-for="${id}" aria-label="Adicionar condição a ${escapeHtml(combatant.name)}"><option value="">+ Condição</option>${options}</select>
   </div>`;
 }
 
@@ -2467,8 +2481,8 @@ function renderCampaigns() {
   state.campaigns.forEach((campaign) => {
     insertBefore.insertAdjacentHTML("beforebegin", `
       <article class="campaign-card" data-custom-campaign="${escapeHtml(campaign.id)}">
-        <div class="campaign-cover campaign-cover-${escapeHtml(["mountains", "forest", "ruins", "night"].includes(campaign.background) ? campaign.background : "mountains")}" data-campaign-cover="${escapeHtml(campaign.id)}"><span>✧</span><small>CAMPANHA</small></div>
-        <div class="campaign-card-body"><div class="campaign-title-row"><div><h2>${escapeHtml(campaign.name)}</h2><p>${escapeHtml(campaign.description || "Uma nova história começa a ser escrita.")}</p></div><button class="icon-button campaign-edit-icon" type="button" data-edit-campaign="${escapeHtml(campaign.id)}" aria-label="Editar ${escapeHtml(campaign.name)}">···</button></div><div class="campaign-card-meta"><span>◷ Campanha pronta para jogar</span></div><button class="button button-outline campaign-open" type="button" data-open-campaign="${escapeHtml(campaign.id)}">Abrir campanha <span>→</span></button></div>
+        <div class="campaign-cover campaign-cover-${escapeHtml(["mountains", "forest", "ruins", "night"].includes(campaign.background) ? campaign.background : "mountains")}" data-campaign-cover="${escapeHtml(campaign.id)}"><span aria-hidden="true">${icon("d20")}</span><small>CAMPANHA</small></div>
+        <div class="campaign-card-body"><div class="campaign-title-row"><div><h2>${escapeHtml(campaign.name)}</h2><p>${escapeHtml(campaign.description || "Uma nova história começa a ser escrita.")}</p></div><button class="icon-button campaign-edit-icon" type="button" data-edit-campaign="${escapeHtml(campaign.id)}" aria-label="Editar ${escapeHtml(campaign.name)}">${icon("more")}</button></div><div class="campaign-card-meta"><span>${icon("clock")} Campanha pronta para jogar</span></div><button class="button button-outline campaign-open" type="button" data-open-campaign="${escapeHtml(campaign.id)}">Abrir campanha ${icon("arrow-right")}</button></div>
       </article>`);
     const cover = container.querySelector(`[data-campaign-cover="${CSS.escape(campaign.id)}"]`);
     const imageUrl = getSafeExternalUrl(campaign.imageUrl);
@@ -2495,8 +2509,8 @@ function renderDashboardCampaign() {
   document.querySelector("#dashboard-campaign-name").textContent = name;
   document.querySelector("#dashboard-campaign-description").textContent = description;
   document.querySelector("#dashboard-campaign-meta").innerHTML = campaign
-    ? "<span>◷ &nbsp;Campanha ativa</span>"
-    : "<span>＋ &nbsp;Crie sua primeira campanha</span>";
+    ? `<span>${icon("clock")} Campanha ativa</span>`
+    : `<span>${icon("plus")} Crie sua primeira campanha</span>`;
   document.querySelector("#dashboard-activity-name").textContent = name;
   document.querySelector("#dashboard-activity-description").textContent = campaign
     ? "Última campanha aberta"
@@ -2790,7 +2804,7 @@ function setupEvents() {
     const quantity = Math.min(20, Math.max(1, Math.floor(Number(formData.get("quantity")) || 1)));
     if (!name) return;
     if (rawScore === "" && modifier === null) {
-      showToast("Informe a iniciativa ou use o 🎲 para rolar.");
+      showToast("Informe a iniciativa ou use o botão do d20 para rolar.");
       document.querySelector("#combatant-score").focus();
       return;
     }
@@ -2827,7 +2841,8 @@ function setupEvents() {
       document.querySelector("#combatant-name").focus();
     }
   });
-  document.querySelector("#roll-initiative").addEventListener("click", () => {
+  document.querySelector("#roll-initiative").addEventListener("click", (event) => {
+    spinDice(event.currentTarget);
     const dexterityValue = state.initiative.selectedMonster?.dexterity;
     const hasDexterity = dexterityValue !== null && dexterityValue !== undefined && Number.isFinite(Number(dexterityValue));
     const modifier = hasDexterity ? Math.floor((Number(dexterityValue) - 10) / 2) : 0;
@@ -2933,7 +2948,10 @@ function setupEvents() {
     if (state.monsters.provider === "custom") loadMonsters();
     showToast("Criaturas importadas removidas.");
   });
-  document.querySelector("#roll-all-initiative").addEventListener("click", rollAllMonsterInitiative);
+  document.querySelector("#roll-all-initiative").addEventListener("click", (event) => {
+    spinDice(event.currentTarget);
+    rollAllMonsterInitiative();
+  });
   const initiativeList = document.querySelector("#initiative-list");
   initiativeList.addEventListener("submit", (event) => {
     const form = event.target.closest("[data-hp-quick]");
