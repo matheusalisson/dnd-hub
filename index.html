@@ -9,8 +9,22 @@
     />
     <meta name="theme-color" content="#101116" />
     <title>BanD&amp;D — Hub do Mestre</title>
+    <script>
+      // Aplica o tema antes da primeira pintura para não piscar o tema errado.
+      try {
+        const savedTheme = localStorage.getItem("bandd-theme");
+        document.documentElement.dataset.theme = savedTheme === "light" || savedTheme === "dark"
+          ? savedTheme
+          : window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+      } catch {
+        document.documentElement.dataset.theme = "dark";
+      }
+    </script>
     <link rel="preconnect" href="https://www.dnd5eapi.co" />
     <link rel="stylesheet" href="./assets/css/styles.css" />
+    <script src="./assets/js/i18n.js" defer></script>
+    <script src="./assets/js/spells-pt.js" defer></script>
+    <script src="./assets/js/monsters-pt.js" defer></script>
     <script src="./assets/js/app.js" defer></script>
   </head>
   <body>
@@ -31,6 +45,9 @@
     <symbol id="i-arrow-up-right" viewBox="0 0 24 24"><path d="M7 7h10v10M7 17L17 7"/></symbol>
     <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="m12 19l-7-7l7-7m7 7H5"/></symbol>
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9a9 9 0 1 1-9-9"/></symbol>
+    <symbol id="i-languages" viewBox="0 0 24 24"><path d="m5 8l6 6m-7 0l6-6l2-3M2 5h12M7 2h1m14 20l-5-10l-5 10m2-4h6"/></symbol>
     <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9a9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
     <symbol id="i-flag" viewBox="0 0 24 24"><path d="M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 7.333 2q2 0 3.067-.8A1 1 0 0 1 20 4v10a1 1 0 0 1-.4.8A6 6 0 0 1 16 16c-3 0-5-2-8-2a6 6 0 0 0-4 1.528"/></symbol>
     <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 3v12m5-7l-5-5l-5 5m14 7v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></symbol>
@@ -105,6 +122,14 @@
               <input id="global-search" type="search" placeholder="Buscar magia no compêndio..." aria-label="Buscar magia no compêndio" />
               <kbd>/</kbd>
             </label>
+            <label class="language-picker" title="Idioma">
+              <svg class="icon" aria-hidden="true"><use href="#i-languages"></use></svg>
+              <select id="language-select" aria-label="Idioma">
+                <option value="pt" lang="pt-BR">Português</option>
+                <option value="en" lang="en">English</option>
+              </select>
+            </label>
+            <button class="icon-button theme-toggle" id="theme-toggle" type="button"><svg class="icon" aria-hidden="true"><use href="#i-sun"></use></svg></button>
           </div>
         </header>
 

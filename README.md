@@ -11,7 +11,10 @@ Abra `index.html` em um navegador. Para evitar restrições do navegador ao carr
 - Painel inicial com campanha em destaque, próxima sessão e atalhos.
 - Navegação responsiva com uma rota própria por tela (hash na URL), menu global e suporte aos botões voltar/avançar do navegador.
 - Consulta de magias e criaturas pela [D&D 5e API](https://www.dnd5eapi.co/), na versão de regras de 2014.
-- Página dedicada aos 24 truques do SRD 2014, consultados pela API e com nomes, descrições, alcance, duração, componentes, materiais e classes traduzidos para português do Brasil; a busca aceita termos em português e inglês.
+- Site em português ou inglês (seletor no topo): interface, regras, condições e as 319 magias e truques do SRD 2014. Em português, magias têm nome, descrição, materiais, círculos superiores, alcance e duração traduzidos (distâncias em metros); em inglês, o texto original da API. A busca aceita nomes nas duas línguas, inclusive trechos.
+- Fichas das 334 criaturas do SRD 2014 em português: traços, ações, ações lendárias, descrições, idiomas, resistências, tendências, perícias e testes de resistência. Em português, todas as distâncias (deslocamento, sentidos, alcance) aparecem em metros; nas fichas do Open5e o texto continua no original, mas as distâncias também são convertidas.
+- Tema escuro ou claro (botão ☀/☾ no topo); o claro tem tons de pergaminho para não cansar a vista. Na primeira visita, segue o tema do sistema.
+- Página dedicada aos 24 truques do SRD 2014.
 - Catálogo opcional de criaturas do [Open5e](https://api.open5e.com/), que agrega SRD e outras fontes abertas licenciadas; permite filtrar por publicação e a ficha identifica sua fonte/licença.
 - Busca de criaturas em português e inglês no catálogo SRD 2014 completo (334 entradas carregadas da API), com nomes localizados e correspondência parcial; a ficha mantém o nome original da fonte.
 - Filtro por círculo de magia, paginação e detalhes dos recursos do compêndio.
@@ -28,7 +31,7 @@ Abra `index.html` em um navegador. Para evitar restrições do navegador ao carr
 - Criaturas próprias: importe um JSON (há um modelo para baixar na tela Criaturas → "Minhas criaturas"); elas ficam só no seu navegador e aparecem na busca da iniciativa.
 - Dados e backup: exporte campanhas, combatentes, anotações e criaturas para um arquivo JSON e importe em outro computador.
 
-Os textos da interface estão em português. Os truques do SRD 2014 são consultados na D&D 5e API e têm conteúdo localizado no cliente; as fichas preservam o nome original da API como referência. O catálogo Open5e agrega SRD e outras fontes abertas licenciadas; ele não é uma lista completa dos monstros de aventuras comerciais de D&D. A versão inicial não inclui servidor nem sincronização entre dispositivos.
+O português é o texto-fonte da interface; `i18n.js` guarda as traduções para inglês, indexadas pela frase em português. As magias vêm da D&D 5e API e a tradução para português fica em `spells-pt.js`; as fichas preservam o nome original da API como referência. O catálogo Open5e agrega SRD e outras fontes abertas licenciadas; ele não é uma lista completa dos monstros de aventuras comerciais de D&D. A versão inicial não inclui servidor nem sincronização entre dispositivos.
 
 ## Estrutura
 
@@ -39,6 +42,9 @@ assets/
     styles.css
   js/
     app.js
+    i18n.js        (idioma: dicionário inglês, regras e condições)
+    spells-pt.js   (tradução das 319 magias do SRD 2014)
+    monsters-pt.js (tradução das 334 criaturas do SRD 2014)
 ```
 
 ## Ideias para evoluir
@@ -48,7 +54,7 @@ assets/
 3. **Ferramentas de combate:** condições, recursos, concentração e rolagens adicionais.
 4. **Construtor de encontros:** seleção de monstros da API, dificuldade por nível do grupo e orçamento de XP.
 5. **Tela de mesa:** iniciativa, notas do mestre e informações de encontro em uma visualização compacta para compartilhar.
-6. **Conteúdo em português:** ampliar o índice de nomes localizados e adicionar traduções autorizadas do SRD, separadas dos dados originais.
+6. **Conteúdo em português:** traduzir também as fichas do Open5e (hoje só as distâncias são convertidas para metros).
 7. **Persistência e colaboração:** backend com autenticação, banco de dados, exportação/importação e acesso compartilhado por campanha.
 
 ## Ferramentas sugeridas

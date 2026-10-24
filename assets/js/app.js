@@ -10,7 +10,7 @@ const DEFAULT_CAMPAIGN = {
 };
 
 const state = {
-  spells: { results: [], visibleCount: PAGE_SIZE, query: "", level: "", requestId: 0 },
+  spells: { catalog: null, results: [], visibleCount: PAGE_SIZE, query: "", level: "", requestId: 0 },
   tricks: { catalog: null, results: [], visibleCount: PAGE_SIZE, query: "", requestId: 0 },
   monsters: { results: [], visibleCount: PAGE_SIZE, query: "", provider: "dnd5e", documentSlug: "", documents: null, nameIndex: null, next: null, requestId: 0, imageCache: new Map() },
   combatants: loadStored("cronica-combatants", []),
@@ -25,208 +25,13 @@ const state = {
   notesFilter: "all",
   notesDirty: false,
   customCreatures: loadCustomCreatures(),
-  initiativeSpells: { catalog: null, trickNames: null, results: [], requestId: 0 },
+  initiativeSpells: { catalog: null, results: [], requestId: 0 },
 };
 
-const spellTranslations = {
-  "acid arrow": ["flecha ácida"],
-  "acid splash": ["respingo ácido"],
-  "aid": ["ajuda"],
-  "animal friendship": ["amizade animal"],
-  "armor of agathys": ["armadura de agathys"],
-  "arms of hadar": ["braços de hadar"],
-  "bane": ["perdição"],
-  "banishment": ["banimento"],
-  "barkskin": ["pele de árvore"],
-  "beacon of hope": ["sinal de esperança"],
-  "bless": ["bênção"],
-  "burning hands": ["mãos flamejantes"],
-  "charm person": ["enfeitiçar pessoa"],
-  "chill touch": ["toque arrepiante"],
-  "chromatic orb": ["orbe cromática"],
-  "cure wounds": ["curar ferimentos"],
-  "counterspell": ["contramágica"],
-  "darkness": ["escuridão"],
-  "dancing lights": ["luzes dançantes"],
-  "daylight": ["luz do dia"],
-  "detect magic": ["detectar magia"],
-  "dispel magic": ["dissipar magia"],
-  "druidcraft": ["druidismo"],
-  "eldritch blast": ["rajada mística"],
-  "faerie fire": ["fogo das fadas"],
-  "fear": ["medo"],
-  "feather fall": ["queda suave"],
-  "fire bolt": ["raio de fogo"],
-  "fireball": ["bola de fogo"],
-  "fly": ["voo"],
-  "guiding bolt": ["raio guiador"],
-  "guidance": ["orientação"],
-  "healing word": ["palavra curativa"],
-  "hold person": ["imobilizar pessoa"],
-  "invisibility": ["invisibilidade"],
-  "light": ["luz"],
-  "lightning bolt": ["relâmpago"],
-  "lesser restoration": ["restauração menor"],
-  "mage armor": ["armadura arcana"],
-  "magic missile": ["mísseis mágicos", "míssil mágico"],
-  "mage hand": ["mão mágica"],
-  "mending": ["reparar"],
-  "message": ["mensagem"],
-  "minor illusion": ["ilusão menor"],
-  "misty step": ["passo nebuloso"],
-  "moonbeam": ["raio lunar"],
-  "pass without trace": ["passos sem pegadas"],
-  "poison spray": ["rajada venenosa"],
-  "polymorph": ["metamorfose"],
-  "prestidigitation": ["prestidigitação"],
-  "produce flame": ["produzir chamas"],
-  "ray of frost": ["raio de gelo"],
-  "resistance": ["resistência"],
-  "revivify": ["revivificar"],
-  "sacred flame": ["chama sagrada"],
-  "shield": ["escudo"],
-  "shocking grasp": ["toque chocante"],
-  "shillelagh": ["bordão mágico"],
-  "spiritual weapon": ["arma espiritual"],
-  "spirit guardians": ["guardiões espirituais"],
-  "spare the dying": ["poupar os moribundos"],
-  "speak with animals": ["falar com animais"],
-  "sleep": ["sono"],
-  "slow": ["lentidão"],
-  "thaumaturgy": ["taumaturgia"],
-  "thunderwave": ["onda trovejante"],
-  "true resurrection": ["ressurreição verdadeira"],
-  "true strike": ["ataque certeiro"],
-  "vicious mockery": ["escárnio vicioso"],
-  "wall of fire": ["muralha de fogo"],
-  "web": ["teia"],
-  "witch bolt": ["raio místico"],
-  "wrathful smite": ["golpe colérico"],
-};
-
-const trickDescriptions = {
-  "acid splash": [
-    "Você arremessa uma bolha de ácido. Escolha uma criatura dentro do alcance ou duas criaturas que estejam a até 1,5 metro uma da outra. O alvo deve ser bem-sucedido em um teste de resistência de Destreza ou sofre 1d6 de dano ácido.",
-    "O dano desta magia aumenta em 1d6 quando você alcança o 5º nível (2d6), o 11º nível (3d6) e o 17º nível (4d6).",
-  ],
-  "chill touch": [
-    "Você cria uma mão fantasmagórica e esquelética no espaço de uma criatura dentro do alcance. Faça um ataque mágico à distância contra ela, envolvendo-a no frio do túmulo. Se acertar, o alvo sofre 1d8 de dano necrótico e não pode recuperar pontos de vida até o início do seu próximo turno. Até lá, a mão permanece agarrada ao alvo.",
-    "Se você acertar um morto-vivo, ele também terá desvantagem nas jogadas de ataque contra você até o fim do seu próximo turno.",
-    "O dano desta magia aumenta em 1d8 quando você alcança o 5º nível (2d8), o 11º nível (3d8) e o 17º nível (4d8).",
-  ],
-  "dancing lights": [
-    "Você cria até quatro luzes do tamanho de tochas dentro do alcance, que podem parecer tochas, lanternas ou orbes brilhantes pairando no ar. Também pode combinar as quatro luzes em uma forma vagamente humanoide de tamanho Médio. Em qualquer forma, cada luz emite penumbra em um raio de 3 metros.",
-    "Como uma ação bônus no seu turno, você pode mover as luzes até 18 metros para um novo ponto dentro do alcance. Uma luz deve permanecer a até 6 metros de outra luz criada por esta magia; ela se apaga se ultrapassar o alcance da magia.",
-  ],
-  "druidcraft": [
-    "Ao sussurrar para os espíritos da natureza, você cria um dos efeitos a seguir dentro do alcance:",
-    "• Você cria um efeito sensorial minúsculo e inofensivo que prevê o clima no local onde está pelas próximas 24 horas. O efeito pode aparecer como um orbe dourado para indicar céu limpo, uma nuvem para chuva, flocos de neve para neve e assim por diante. Ele dura 1 rodada.",
-    "• Você faz uma flor desabrochar, uma vagem se abrir ou um botão de folha florescer instantaneamente.",
-    "• Você cria um efeito sensorial instantâneo e inofensivo, como folhas caindo, uma brisa, o som de um animal pequeno ou um leve cheiro de gambá. O efeito deve caber em um cubo de 1,5 metro.",
-    "• Você acende ou apaga instantaneamente uma vela, tocha ou pequena fogueira.",
-  ],
-  "eldritch blast": [
-    "Um raio de energia crepitante dispara em direção a uma criatura dentro do alcance. Faça um ataque mágico à distância contra o alvo. Se acertar, ele sofre 1d10 de dano energético.",
-    "A magia cria mais raios quando você alcança níveis superiores: dois raios no 5º nível, três no 11º nível e quatro no 17º nível. Você pode direcionar os raios ao mesmo alvo ou a alvos diferentes. Faça uma jogada de ataque separada para cada raio.",
-  ],
-  "fire bolt": [
-    "Você arremessa uma fagulha de fogo contra uma criatura ou objeto dentro do alcance. Faça um ataque mágico à distância contra o alvo. Se acertar, ele sofre 1d10 de dano ígneo. Um objeto inflamável atingido por esta magia incendeia-se se não estiver sendo vestido ou carregado.",
-    "O dano desta magia aumenta em 1d10 quando você alcança o 5º nível (2d10), o 11º nível (3d10) e o 17º nível (4d10).",
-  ],
-  "guidance": [
-    "Você toca uma criatura voluntária. Antes do fim da magia, o alvo pode rolar 1d4 e adicionar o resultado a um teste de atributo à sua escolha. Ele pode rolar o dado antes ou depois de fazer o teste. Então, a magia termina.",
-  ],
-  "light": [
-    "Você toca um objeto que não seja maior que 3 metros em qualquer dimensão. Até a magia terminar, o objeto emite luz plena em um raio de 6 metros e penumbra por mais 6 metros. Você pode escolher a cor da luz. Cobrir completamente o objeto com algo opaco bloqueia a luz. A magia termina se você a conjurar novamente ou encerrá-la usando uma ação.",
-    "Se o objeto escolhido estiver sendo vestido ou carregado por uma criatura hostil, ela deve ser bem-sucedida em um teste de resistência de Destreza para evitar a magia.",
-  ],
-  "mage hand": [
-    "Uma mão espectral e flutuante aparece em um ponto à sua escolha dentro do alcance. Ela dura até o fim da magia ou até você dispensá-la usando uma ação. A mão desaparece se ficar a mais de 9 metros de você ou se você conjurar esta magia novamente.",
-    "Você pode usar sua ação para controlar a mão. Ela pode manipular um objeto, abrir uma porta ou recipiente destrancado, guardar ou retirar um item de um recipiente aberto ou despejar o conteúdo de um frasco. A cada uso, você pode mover a mão até 9 metros.",
-    "A mão não pode atacar, ativar itens mágicos nem carregar mais de 4,5 quilos.",
-  ],
-  "mending": [
-    "Esta magia repara uma única quebra ou rasgo em um objeto que você tocar, como uma chave quebrada, uma capa rasgada ou um odre furado. Desde que a quebra ou o rasgo não tenha mais de 30 centímetros em qualquer dimensão, você o conserta sem deixar vestígios do dano.",
-    "A magia pode reparar fisicamente um item mágico ou construto, mas não restaura a magia desse objeto.",
-  ],
-  "message": [
-    "Você aponta o dedo para uma criatura dentro do alcance e sussurra uma mensagem. Somente o alvo ouve a mensagem e pode responder em um sussurro que apenas você consegue ouvir.",
-    "Você pode conjurar esta magia através de objetos sólidos se conhecer o alvo e souber que ele está além da barreira. Silêncio mágico, 30 centímetros de pedra, 2,5 centímetros de metal comum, uma fina folha de chumbo ou 90 centímetros de madeira bloqueiam a magia. Ela não precisa seguir uma linha reta e pode contornar esquinas e passar por aberturas.",
-  ],
-  "minor illusion": [
-    "Você cria um som ou a imagem de um objeto dentro do alcance, que dura até o fim da magia. A ilusão também termina se você a dispensar usando uma ação ou conjurar esta magia novamente.",
-    "Se criar um som, o volume pode variar de um sussurro a um grito. Pode ser sua voz, a voz de outra pessoa, o rugido de um leão, uma batida de tambores ou qualquer outro som que você escolher. O som continua sem parar durante toda a duração, ou você pode criar sons distintos em momentos diferentes antes do fim da magia.",
-    "Se criar a imagem de um objeto — como uma cadeira, pegadas na lama ou um pequeno baú —, ela não pode ser maior que um cubo de 1,5 metro. A imagem não pode produzir som, luz, cheiro nem qualquer outro efeito sensorial. A interação física revela que ela é uma ilusão, pois objetos atravessam sua imagem.",
-    "Se uma criatura usar sua ação para examinar o som ou a imagem, poderá determinar que é uma ilusão se for bem-sucedida em um teste de Inteligência (Investigação) contra a CD das suas magias. Se perceber a ilusão como tal, ela se torna tênue para essa criatura.",
-  ],
-  "poison spray": [
-    "Você estende a mão em direção a uma criatura que possa ver dentro do alcance e projeta da palma um sopro de gás nocivo. A criatura deve ser bem-sucedida em um teste de resistência de Constituição ou sofre 1d12 de dano venenoso.",
-    "O dano desta magia aumenta em 1d12 quando você alcança o 5º nível (2d12), o 11º nível (3d12) e o 17º nível (4d12).",
-  ],
-  "prestidigitation": [
-    "Esta magia é um pequeno truque mágico usado por conjuradores iniciantes para praticar. Você cria um dos seguintes efeitos mágicos dentro do alcance:",
-    "• Você cria um efeito sensorial instantâneo e inofensivo, como uma chuva de faíscas, uma brisa, notas musicais suaves ou um odor peculiar.",
-    "• Você acende ou apaga instantaneamente uma vela, tocha ou pequena fogueira.",
-    "• Você limpa ou suja instantaneamente um objeto que não seja maior que 28 litros.",
-    "• Você resfria, aquece ou dá sabor a até 28 litros de material inanimado por 1 hora.",
-    "• Você faz uma cor, pequena marca ou símbolo aparecer em um objeto ou superfície por 1 hora.",
-    "• Você cria uma bugiganga não mágica ou uma imagem ilusória que caiba na sua mão e dure até o fim do seu próximo turno.",
-    "Se conjurar esta magia várias vezes, pode manter até três de seus efeitos não instantâneos ativos ao mesmo tempo. Você pode dispensar esses efeitos usando uma ação.",
-  ],
-  "produce flame": [
-    "Uma chama bruxuleante aparece na sua mão. Ela permanece ali durante a magia e não causa dano a você nem ao seu equipamento. A chama emite luz plena em um raio de 3 metros e penumbra por mais 3 metros. A magia termina se você dispensar a chama usando uma ação ou conjurar esta magia novamente.",
-    "Você também pode atacar com a chama, mas isso encerra a magia. Ao conjurá-la ou usando uma ação em um turno posterior, você pode arremessar a chama contra uma criatura a até 9 metros de você. Faça um ataque mágico à distância. Se acertar, o alvo sofre 1d8 de dano ígneo.",
-    "O dano desta magia aumenta em 1d8 quando você alcança o 5º nível (2d8), o 11º nível (3d8) e o 17º nível (4d8).",
-  ],
-  "ray of frost": [
-    "Um raio gélido de luz azul-esbranquiçada dispara em direção a uma criatura dentro do alcance. Faça um ataque mágico à distância contra o alvo. Se acertar, ele sofre 1d8 de dano gélido e seu deslocamento é reduzido em 3 metros até o início do seu próximo turno.",
-    "O dano desta magia aumenta em 1d8 quando você alcança o 5º nível (2d8), o 11º nível (3d8) e o 17º nível (4d8).",
-  ],
-  "resistance": [
-    "Você toca uma criatura voluntária. Antes do fim da magia, o alvo pode rolar 1d4 e adicionar o resultado a um teste de resistência à sua escolha. Ele pode rolar o dado antes ou depois de fazer o teste. Então, a magia termina.",
-  ],
-  "sacred flame": [
-    "Uma radiância semelhante a uma chama desce sobre uma criatura que você possa ver dentro do alcance. O alvo deve ser bem-sucedido em um teste de resistência de Destreza ou sofre 1d8 de dano radiante. O alvo não recebe benefício de cobertura contra esse teste de resistência.",
-    "O dano desta magia aumenta em 1d8 quando você alcança o 5º nível (2d8), o 11º nível (3d8) e o 17º nível (4d8).",
-  ],
-  "shillelagh": [
-    "A madeira de uma clava ou bordão que você esteja segurando é imbuída do poder da natureza. Durante a magia, você pode usar seu atributo de conjuração em vez de Força nas jogadas de ataque e dano de ataques corpo a corpo com essa arma, e o dado de dano da arma passa a ser 1d8. A arma também se torna mágica, caso ainda não seja. A magia termina se você conjurá-la novamente ou soltar a arma.",
-  ],
-  "shocking grasp": [
-    "Um raio salta da sua mão para eletrocutar uma criatura que você tentar tocar. Faça um ataque mágico corpo a corpo contra o alvo. Você tem vantagem na jogada de ataque se o alvo estiver usando armadura de metal. Se acertar, ele sofre 1d8 de dano elétrico e não pode realizar reações até o início do próximo turno dele.",
-    "O dano desta magia aumenta em 1d8 quando você alcança o 5º nível (2d8), o 11º nível (3d8) e o 17º nível (4d8).",
-  ],
-  "spare the dying": [
-    "Você toca uma criatura viva que tenha 0 pontos de vida. Ela fica estável. Esta magia não tem efeito sobre mortos-vivos nem construtos.",
-  ],
-  "thaumaturgy": [
-    "Você manifesta uma pequena maravilha, um sinal de poder sobrenatural, dentro do alcance. Crie um dos seguintes efeitos mágicos:",
-    "• Sua voz fica até três vezes mais alta que o normal por 1 minuto.",
-    "• Você faz chamas tremeluzirem, ficarem mais brilhantes ou fracas, ou mudarem de cor por 1 minuto.",
-    "• Você provoca tremores inofensivos no chão por 1 minuto.",
-    "• Você cria um som instantâneo que se origina de um ponto à sua escolha dentro do alcance, como um trovão, o grasnado de um corvo ou sussurros sinistros.",
-    "• Você faz instantaneamente uma porta ou janela destrancada se abrir de repente ou bater.",
-    "• Você altera a aparência dos seus olhos por 1 minuto.",
-    "Se conjurar esta magia várias vezes, pode manter até três de seus efeitos de 1 minuto ativos ao mesmo tempo. Você pode dispensar esses efeitos usando uma ação.",
-  ],
-  "true strike": [
-    "Você estende a mão e aponta o dedo para um alvo dentro do alcance. Sua magia concede uma breve percepção das defesas dele. No seu próximo turno, você tem vantagem na sua primeira jogada de ataque contra esse alvo, desde que a magia ainda não tenha terminado.",
-  ],
-  "vicious mockery": [
-    "Você profere uma série de insultos imbuídos de encantamentos sutis contra uma criatura que possa ver dentro do alcance. Se o alvo puder ouvir você — mesmo que não compreenda o que diz —, deve ser bem-sucedido em um teste de resistência de Sabedoria ou sofre 1d4 de dano psíquico e tem desvantagem na próxima jogada de ataque que fizer antes do fim do próximo turno dele.",
-    "O dano desta magia aumenta em 1d4 quando você alcança o 5º nível (2d4), o 11º nível (3d4) e o 17º nível (4d4).",
-  ],
-};
-
-const trickMaterialTranslations = {
-  "dancing lights": "Um pouco de fósforo ou madeira de aveleira, ou um vaga-lume.",
-  light: "Um vaga-lume ou musgo fosforescente.",
-  mending: "Duas pedras-ímã.",
-  message: "Um pequeno pedaço de fio de cobre.",
-  "minor illusion": "Um pouco de lã.",
-  resistance: "Uma capa em miniatura.",
-  shillelagh: "Visco, uma folha de trevo e uma clava ou bordão.",
-};
+// Nomes em português (e apelidos) aceitos na busca, derivados das traduções completas de spells-pt.js.
+const spellTranslations = Object.fromEntries(
+  Object.entries(spellsPt).map(([englishName, spell]) => [englishName, [spell.name, ...(spell.aliases || [])]]),
+);
 
 const monsterTranslations = {
   "aboleth": ["abolete"],
@@ -480,20 +285,20 @@ const monsterTranslations = {
 };
 
 const monsterTypeTranslations = {
-  aberration: "Aberração",
-  beast: "Besta",
-  celestial: "Celestial",
-  construct: "Constructo",
-  dragon: "Dragão",
-  elemental: "Elemental",
-  fey: "Feérico",
-  fiend: "Corruptor",
-  giant: "Gigante",
-  humanoid: "Humanoide",
-  monstrosity: "Monstruosidade",
-  ooze: "Gosma",
-  plant: "Planta",
-  undead: "Morto-vivo",
+  aberration: t("Aberração"),
+  beast: t("Besta"),
+  celestial: t("Celestial"),
+  construct: t("Constructo"),
+  dragon: t("Dragão"),
+  elemental: t("Elemental"),
+  fey: t("Feérico"),
+  fiend: t("Corruptor"),
+  giant: t("Gigante"),
+  humanoid: t("Humanoide"),
+  monstrosity: t("Monstruosidade"),
+  ooze: t("Gosma"),
+  plant: t("Planta"),
+  undead: t("Morto-vivo"),
 };
 
 const monsterNameParts = {
@@ -784,33 +589,33 @@ const monsterNameParts = {
 };
 
 const spellSchoolTranslations = {
-  abjuration: "Abjuração",
-  conjuration: "Conjuração",
-  divination: "Adivinhação",
-  enchantment: "Encantamento",
-  evocation: "Evocação",
-  illusion: "Ilusão",
-  necromancy: "Necromancia",
-  transmutation: "Transmutação",
+  abjuration: t("Abjuração"),
+  conjuration: t("Conjuração"),
+  divination: t("Adivinhação"),
+  enchantment: t("Encantamento"),
+  evocation: t("Evocação"),
+  illusion: t("Ilusão"),
+  necromancy: t("Necromancia"),
+  transmutation: t("Transmutação"),
 };
 
 const spellClassTranslations = {
-  bard: "Bardo",
-  cleric: "Clérigo",
-  druid: "Druida",
-  sorcerer: "Feiticeiro",
-  warlock: "Bruxo",
-  wizard: "Mago",
+  bard: t("Bardo"),
+  cleric: t("Clérigo"),
+  druid: t("Druida"),
+  sorcerer: t("Feiticeiro"),
+  warlock: t("Bruxo"),
+  wizard: t("Mago"),
 };
 
 const ruleCategories = {
-  testes: "Testes",
-  acoes: "Ações em combate",
-  combate: "Combate",
-  dano: "Dano e cura",
-  magia: "Magia",
-  condicoes: "Condições",
-  exploracao: "Exploração e descanso",
+  testes: t("Testes"),
+  acoes: t("Ações em combate"),
+  combate: t("Combate"),
+  dano: t("Dano e cura"),
+  magia: t("Magia"),
+  condicoes: t("Condições"),
+  exploracao: t("Exploração e descanso"),
 };
 
 // Resumos próprios das regras básicas de 2014, com distâncias em metros (1,5 m = 5 pés).
@@ -892,16 +697,22 @@ const quickRules = [
   { title: "Comida e água", category: "exploracao", tags: "comida água fome sede ração exaustão", summary: "Um personagem precisa de 0,5 kg de comida e cerca de 4 litros de água por dia. Aguenta 3 + modificador de CON dias sem comer (mínimo 1); depois, ganha 1 nível de exaustão por dia. Bebendo só metade da água, faça uma resistência de CON CD 15 ou ganhe 1 nível de exaustão; com menos que isso, o nível é automático." },
 ];
 
+// O título em português identifica a regra; em inglês, título e textos vêm de quickRulesEn (i18n.js).
+quickRules.forEach((rule) => {
+  rule.key = rule.title;
+  if (LANG === "en") Object.assign(rule, quickRulesEn[rule.key]);
+});
+
 const labels = {
-  spells: "Magias",
-  tricks: "Truques",
-  monsters: "Criaturas",
-  rules: "Regras",
-  campaigns: "Campanhas",
-  dashboard: "Visão geral",
-  initiative: "Iniciativa",
-  notes: "Anotações",
-  backup: "Dados e backup",
+  spells: t("Magias"),
+  tricks: t("Truques"),
+  monsters: t("Criaturas"),
+  rules: t("Regras"),
+  campaigns: t("Campanhas"),
+  dashboard: t("Visão geral"),
+  initiative: t("Iniciativa"),
+  notes: t("Anotações"),
+  backup: t("Dados e backup"),
 };
 
 const conditionDefs = {
@@ -921,6 +732,7 @@ const conditionDefs = {
   unconscious: ["Inconsciente", "Incapacitado, caído e alheio ao redor. Falha em salvaguardas de FOR e DES; ataques corpo a corpo a até 1,5 m são críticos."],
   concentrating: ["Concentrando", "Mantém uma magia de concentração. Ao sofrer dano: salvaguarda de CON com CD 10 ou metade do dano, o que for maior."],
 };
+if (LANG === "en") Object.assign(conditionDefs, conditionDefsEn);
 
 function loadStored(key, fallback) {
   try {
@@ -937,7 +749,7 @@ function saveStored(key, value) {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (error) {
     console.error(`Não foi possível salvar "${key}" no armazenamento local.`, error);
-    showToast("Não foi possível salvar. Verifique o espaço disponível no navegador.");
+    showToast(t("Não foi possível salvar. Verifique o espaço disponível no navegador."));
     return false;
   }
   return true;
@@ -1018,33 +830,57 @@ function resolveSearchTerm(query, translations) {
 
 function capitalizeFirst(text) {
   const value = String(text ?? "");
-  return value.charAt(0).toLocaleUpperCase("pt-BR") + value.slice(1);
+  return value.charAt(0).toLocaleUpperCase(LOCALE) + value.slice(1);
 }
 
+// Em inglês, nomes e textos da API são exibidos como vieram.
 function getLocalizedName(name, translations) {
+  if (LANG === "en") return name;
   return capitalizeFirst(translations[normalizeSearchTerm(name)]?.[0] || name);
 }
 
+function getSpellTranslation(name) {
+  return LANG === "en" ? null : spellsPt[normalizeSearchTerm(name)] || null;
+}
+
+function formatMeters(feet) {
+  return `${String(Math.round(feet * 0.3 * 10) / 10).replace(".", ",")} ${feet === 5 ? "metro" : "metros"}`;
+}
+
+// Tempo de conjuração, alcance e duração das magias, com distâncias em metros.
 function localizeSpellValue(value) {
-  if (!value) return "";
-  return String(value)
-    .replace(/\binstantaneous\b/gi, "instantânea")
-    .replace(/\bup to\b/gi, "até")
-    .replace(/\b(\d+)\s+minutes?\b/gi, (_, amount) => `${amount} ${amount === "1" ? "minuto" : "minutos"}`)
-    .replace(/\b(\d+)\s+rounds?\b/gi, (_, amount) => `${amount} ${amount === "1" ? "rodada" : "rodadas"}`)
-    .replace(/\b(\d+)\s+hours?\b/gi, (_, amount) => `${amount} ${amount === "1" ? "hora" : "horas"}`)
-    .replace(/\b(\d+)\s+feet\b/gi, (_, amount) => `${amount} pés`)
-    .replace(/\bbonus action(s)?\b/gi, "ação bônus")
-    .replace(/\baction(s)?\b/gi, "ação")
-    .replace(/\bminutes?\b/gi, "minutos")
-    .replace(/\brounds?\b/gi, "rodadas")
-    .replace(/\bhours?\b/gi, "horas")
-    .replace(/\bfeet\b/gi, "pés")
-    .replace(/\btouch\b/gi, "Toque")
-    .replace(/\bself\b/gi, "Pessoal");
+  if (!value || LANG === "en") return value || "";
+  const fixed = {
+    instantaneous: "Instantânea",
+    touch: "Toque",
+    self: "Pessoal",
+    sight: "Visão",
+    special: "Especial",
+    unlimited: "Ilimitado",
+    "until dispelled": "Até ser dissipada",
+  };
+  const units = {
+    "bonus action": ["ação bônus", "ações bônus"],
+    action: ["ação", "ações"],
+    reaction: ["reação", "reações"],
+    minute: ["minuto", "minutos"],
+    hour: ["hora", "horas"],
+    round: ["rodada", "rodadas"],
+    day: ["dia", "dias"],
+  };
+  const text = String(value).trim();
+  if (fixed[text.toLowerCase()]) return fixed[text.toLowerCase()];
+  return text
+    .replace(/^up to /i, "Até ")
+    .replace(/\b(\d+)\s+(feet|foot)\b/gi, (_, amount) => formatMeters(Number(amount)))
+    .replace(/\b(\d+)\s+miles?\b/gi, (_, amount) => `${String(Number(amount) * 1.5).replace(".", ",")} km`)
+    .replace(/\b(\d+)\s+(bonus action|action|reaction|minute|hour|round|day)s?\b/gi, (_, amount, unit) => (
+      `${amount} ${units[unit.toLowerCase()][amount === "1" ? 0 : 1]}`
+    ));
 }
 
 function getLocalizedMonsterName(name) {
+  if (LANG === "en") return name;
   const normalizedName = normalizeSearchTerm(name);
   const exactTranslation = monsterTranslations[normalizedName]?.[0];
   if (exactTranslation) return capitalizeFirst(exactTranslation);
@@ -1076,19 +912,41 @@ function getMonsterSearchName(query) {
 }
 
 function getLocalizedMonsterType(type) {
+  if (LANG !== "en" && monsterFieldsPt.type[normalizeSearchTerm(type)]) return monsterFieldsPt.type[normalizeSearchTerm(type)];
   return monsterTypeTranslations[normalizeSearchTerm(type)] || type;
+}
+
+function formatMeasure(feet) {
+  return String(Math.round(Number(feet) * 0.3 * 10) / 10).replace(".", ",");
+}
+
+// Em português, toda distância em pés vira metros ("30 ft." → "9 m", "80/320 ft." → "24/96 m").
+function feetToMeters(text) {
+  if (LANG === "en") return String(text ?? "");
+  return String(text ?? "")
+    .replace(/(\d+)\/(\d+)\s*(?:ft\.?|feet|foot)(?![a-z])/gi, (_, short, long) => `${formatMeasure(short)}/${formatMeasure(long)} m`)
+    .replace(/(\d+)(?:\s+|-)(?:ft\.?|feet|foot)(?![a-z])/gi, (_, amount) => `${formatMeasure(amount)} m`)
+    .replace(/(\d+)(?:'|’)(?![\w'’])/g, (_, amount) => `${formatMeasure(amount)} m`)
+    .replace(/(\d+)(?:\s+|-)inch(?:es)?\b/gi, (_, amount) => `${String(Number(amount) * 2.5).replace(".", ",")} cm`)
+    .replace(/(\d+)(?:\s+|-)miles?\b/gi, (_, amount) => `${String(Number(amount) * 1.5).replace(".", ",")} km`);
+}
+
+function formatSpeedValue(value) {
+  if (typeof value === "number") return LANG === "en" ? `${value} ft.` : `${formatMeasure(value)} m`;
+  return feetToMeters(value);
 }
 
 function getLocalizedMovement(movement) {
   const movementTypes = {
-    burrow: "escavação",
-    climb: "escalada",
-    fly: "voo",
-    swim: "natação",
-    walk: "terrestre",
+    burrow: t("escavação"),
+    climb: t("escalada"),
+    fly: t("voo"),
+    swim: t("natação"),
+    walk: t("terrestre"),
   };
   return Object.entries(movement || {})
-    .map(([kind, value]) => `${movementTypes[kind] || kind}: ${String(value).replace(/ft\./g, "pés")}`)
+    .filter(([kind, value]) => value !== false && value != null && !(kind === "hover" && value !== true))
+    .map(([kind, value]) => (kind === "hover" ? t("pairar") : `${movementTypes[kind] || kind}: ${formatSpeedValue(value)}`))
     .join(", ");
 }
 
@@ -1097,101 +955,209 @@ function getArmorClassValue(monster) {
   return monster.armor_class ?? "";
 }
 
-function formatMonsterValues(value) {
-  if (Array.isArray(value)) {
-    return value.map((item) => {
-      if (typeof item === "string") return item;
-      if (item && typeof item === "object") {
-        const name = item.name || item.type?.name;
-        const description = item.desc || item.value;
-        return [name, description].filter(Boolean).join(": ");
-      }
-      return String(item);
-    }).filter(Boolean).join(", ");
-  }
-  if (value && typeof value === "object") {
-    const localizedLabels = {
-      darkvision: "visão no escuro",
-      passive_perception: "percepção passiva",
-      blindsight: "visão às cegas",
-      tremorsense: "sentido sísmico",
-      truesight: "visão verdadeira",
-    };
+function localizeMonsterField(group, value) {
+  if (LANG === "en" || value == null) return value ?? "";
+  return monsterFieldsPt[group][value] ?? monsterFieldsPt[group][String(value).toLowerCase()] ?? value;
+}
+
+// Termos combinados ("bludgeoning, piercing, and slashing from...") são traduzidos inteiros; o resto, palavra por palavra.
+function localizeDamageText(value) {
+  if (LANG === "en") return value;
+  const text = String(value).trim();
+  const whole = monsterFieldsPt.damage[text.toLowerCase()];
+  if (whole) return whole;
+  return Object.entries(monsterFieldsPt.damage)
+    .sort(([first], [second]) => second.length - first.length)
+    .reduce((result, [english, portuguese]) => result.replace(new RegExp(`\\b${english}\\b`, "gi"), portuguese), text)
+    .replace(/\band\b/g, "e");
+}
+
+function localizeDamageList(value) {
+  const items = Array.isArray(value) ? value : String(value || "").split(/;\s*/);
+  return items.filter(Boolean).map((item) => localizeDamageText(typeof item === "object" ? item.name : item)).join("; ");
+}
+
+function localizeConditionList(value) {
+  const items = Array.isArray(value) ? value.map((item) => (typeof item === "object" ? item.name : item)) : String(value || "").split(/,\s*/);
+  return items.filter(Boolean).map((item) => {
+    if (LANG === "en") return item;
+    return monsterFieldsPt.condition[capitalizeFirst(String(item).trim().toLowerCase())] || item;
+  }).join(", ");
+}
+
+function localizeLanguages(value) {
+  const text = String(value || "").trim();
+  if (!text || LANG === "en") return text;
+  let result = text;
+  monsterFieldsPt.languagePhrases.forEach(([english, portuguese]) => {
+    result = result.split(english).join(portuguese);
+  });
+  Object.entries(monsterFieldsPt.languages)
+    .sort(([first], [second]) => second.length - first.length)
+    .forEach(([english, portuguese]) => {
+      result = result.replace(new RegExp(`(^|[^\\p{L}])${english.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}])`, "gu"), `$1${portuguese}`);
+    });
+  return feetToMeters(result);
+}
+
+function localizeSenses(value) {
+  const labels = {
+    darkvision: t("visão no escuro"),
+    passive_perception: t("percepção passiva"),
+    "passive perception": t("percepção passiva"),
+    blindsight: t("visão às cegas"),
+    tremorsense: t("sentido sísmico"),
+    truesight: t("visão verdadeira"),
+  };
+  const extras = LANG === "en" ? [] : [["blind beyond this radius", "cego além desse raio"], ["or", "ou"], ["while deafened", "enquanto estiver surdo"]];
+  const translateText = (text) => extras.reduce(
+    (result, [english, portuguese]) => result.replace(new RegExp(`\\b${english}\\b`, "g"), portuguese),
+    feetToMeters(text),
+  );
+  if (value && typeof value === "object" && !Array.isArray(value)) {
     return Object.entries(value)
-      .filter(([, item]) => item != null && item !== "" && String(item).toLowerCase() !== "undefined")
-      .map(([key, item]) => `${localizedLabels[normalizeSearchTerm(key)] || key}: ${String(item).replace(/ft\./g, "pés")}`)
+      .filter(([, item]) => item != null && item !== "")
+      .map(([key, item]) => `${labels[normalizeSearchTerm(key)] || key.replace(/_/g, " ")} ${translateText(item)}`)
       .join(", ");
   }
-  return value ? String(value) : "";
+  if (LANG === "en") return String(value || "");
+  return Object.entries(labels)
+    .reduce((result, [english, label]) => result.replace(new RegExp(english.replace("_", " "), "gi"), label), translateText(value || ""));
+}
+
+function localizeArmor(monster) {
+  if (!Array.isArray(monster.armor_class)) {
+    const description = monster.armor_desc ? ` (${LANG === "en" ? monster.armor_desc : localizeMonsterField("armor", monster.armor_desc)})` : "";
+    return `${monster.armor_class ?? "—"}${description}`;
+  }
+  return monster.armor_class.map((entry) => {
+    const pieces = entry.armor?.length
+      ? entry.armor.map((item) => localizeMonsterField("armor", item.name))
+      : [entry.desc ? localizeMonsterField("armor", entry.desc) : localizeMonsterField("armor", entry.type)];
+    const label = pieces.filter(Boolean).join(", ");
+    return `${entry.value}${label && entry.type !== "dex" ? ` (${label})` : ""}`;
+  }).join(", ");
+}
+
+function formatChallengeRating(value) {
+  return { 0.125: "1/8", 0.25: "1/4", 0.5: "1/2" }[value] ?? value ?? "—";
+}
+
+const ABILITY_LABELS = [
+  ["strength", t("FOR")],
+  ["dexterity", t("DES")],
+  ["constitution", t("CON")],
+  ["intelligence", t("INT")],
+  ["wisdom", t("SAB")],
+  ["charisma", t("CAR")],
+];
+
+const SKILL_NAMES_PT = Object.fromEntries(Object.entries(monsterFieldsPt.proficiency)
+  .filter(([key]) => key.startsWith("Skill: "))
+  .map(([key, value]) => [key.slice(7).toLowerCase(), value]));
+
+// Testes de resistência e perícias: a D&D 5e API usa "proficiencies"; o Open5e, campos próprios.
+function getMonsterSavesAndSkills(monster) {
+  const signed = (value) => `${Number(value) >= 0 ? "+" : ""}${value}`;
+  if (Array.isArray(monster.proficiencies)) {
+    const pick = (prefix) => monster.proficiencies
+      .filter((item) => item.proficiency?.name?.startsWith(prefix))
+      .map((item) => `${LANG === "en" ? item.proficiency.name.slice(prefix.length) : localizeMonsterField("proficiency", item.proficiency.name)} ${signed(item.value)}`)
+      .join(", ");
+    return { saves: pick("Saving Throw: "), skills: pick("Skill: ") };
+  }
+  const saves = ABILITY_LABELS
+    .filter(([key]) => monster[`${key}_save`] != null)
+    .map(([key, label]) => `${label} ${signed(monster[`${key}_save`])}`)
+    .join(", ");
+  const skills = monster.skills && typeof monster.skills === "object"
+    ? Object.entries(monster.skills)
+      .map(([name, value]) => `${LANG === "en" ? capitalizeFirst(name) : SKILL_NAMES_PT[name.toLowerCase()] || capitalizeFirst(name)} ${signed(value)}`)
+      .join(", ")
+    : "";
+  return { saves, skills };
+}
+
+function getMonsterProperties(monster) {
+  const { saves, skills } = getMonsterSavesAndSkills(monster);
+  return [
+    [t("Testes de resistência"), saves],
+    [t("Perícias"), skills],
+    [t("Vulnerabilidades"), localizeDamageList(monster.damage_vulnerabilities)],
+    [t("Resistências a dano"), localizeDamageList(monster.damage_resistances)],
+    [t("Imunidades a dano"), localizeDamageList(monster.damage_immunities)],
+    [t("Imunidades a condições"), localizeConditionList(monster.condition_immunities)],
+    [t("Sentidos"), localizeSenses(monster.senses)],
+    [t("Idiomas"), localizeLanguages(monster.languages)],
+  ].filter(([, value]) => value);
+}
+
+function translateMonsterText(text) {
+  const value = String(text ?? "").trim();
+  if (LANG === "en") return value;
+  return monsterTextPt[value] || feetToMeters(value);
+}
+
+function formatEntryUsage(usage) {
+  if (!usage?.type) return "";
+  if (usage.type === "recharge on roll") {
+    const range = usage.min_value >= 6 ? "6" : `${usage.min_value}–6`;
+    return ` (${t("Recarga {range}", { range })})`;
+  }
+  if (usage.type === "per day") return ` (${t("{times}/dia", { times: usage.times })})`;
+  if (usage.type === "recharge after rest") return ` (${t("Recarrega após descanso curto ou longo")})`;
+  return "";
+}
+
+function getMonsterEntryName(entry) {
+  const name = entry.name || t("Habilidade");
+  return `${LANG === "en" ? name : monsterEntryNamesPt[name] || name}${formatEntryUsage(entry.usage)}`;
+}
+
+function getMonsterFeatureGroups(monster) {
+  return [
+    [t("Traços"), monster.special_abilities || monster.traits],
+    [t("Ações"), monster.actions],
+    [t("Ações bônus"), monster.bonus_actions],
+    [t("Reações"), monster.reactions],
+    [t("Ações lendárias"), monster.legendary_actions],
+    [t("Ações de covil"), monster.lair_actions],
+  ].filter(([, entries]) => Array.isArray(entries) && entries.length);
+}
+
+function renderMonsterEntry(entry) {
+  const [first, ...rest] = translateMonsterText(entry.desc || entry.description || "").split("\n").filter((line) => line.trim());
+  return `<p><strong>${escapeHtml(getMonsterEntryName(entry))}.</strong> ${escapeHtml(first || "")}</p>${rest.length ? renderSpellText(rest) : ""}`;
+}
+
+function getMonsterSubtitle(monster) {
+  const size = {
+    tiny: t("Miúdo"),
+    small: t("Pequeno"),
+    medium: t("Médio"),
+    large: t("Grande"),
+    huge: t("Enorme"),
+    gargantuan: t("Imenso"),
+  }[normalizeSearchTerm(monster.size)] || monster.size || "";
+  const subtype = monster.subtype ? ` (${localizeMonsterField("subtype", monster.subtype)})` : "";
+  const alignment = localizeMonsterField("alignment", monster.alignment);
+  return `${[size, getLocalizedMonsterType(monster.type || "")].filter(Boolean).join(" ")}${subtype}${alignment ? `, ${alignment}` : ""}`;
 }
 
 function buildMonsterTooltip(monster, tooltipId) {
-  const abilities = [
-    ["strength", "FOR"],
-    ["dexterity", "DES"],
-    ["constitution", "CON"],
-    ["intelligence", "INT"],
-    ["wisdom", "SAB"],
-    ["charisma", "CAR"],
-  ].map(([key, label]) => `<span>${label} <strong>${escapeHtml(monster[key] ?? "—")}</strong></span>`).join("");
-  const properties = [
-    ["Testes de resistência", formatMonsterValues(monster.saving_throws || {
-      FOR: monster.strength_save,
-      DES: monster.dexterity_save,
-      CON: monster.constitution_save,
-      INT: monster.intelligence_save,
-      SAB: monster.wisdom_save,
-      CAR: monster.charisma_save,
-    })],
-    ["Perícias", formatMonsterValues(monster.skills)],
-    ["Resistências a dano", formatMonsterValues(monster.damage_resistances)],
-    ["Imunidades a dano", formatMonsterValues(monster.damage_immunities)],
-    ["Vulnerabilidades", formatMonsterValues(monster.damage_vulnerabilities)],
-    ["Imunidades a condições", formatMonsterValues(monster.condition_immunities)],
-    ["Sentidos", formatMonsterValues(monster.senses)],
-    ["Idiomas", formatMonsterValues(monster.languages)],
-  ].filter(([, value]) => value);
-  const features = [
-    ["Traços", monster.special_abilities || monster.traits],
-    ["Ações", monster.actions],
-    ["Ações bônus", monster.bonus_actions],
-    ["Reações", monster.reactions],
-    ["Ações lendárias", monster.legendary_actions],
-  ].map(([heading, entries]) => {
-    if (!Array.isArray(entries) || !entries.length) return "";
-    return `<section><h4>${heading}</h4>${entries.map((entry) => `<p><strong>${escapeHtml(entry.name || "Habilidade")}:</strong> ${escapeHtml(entry.desc || entry.description || "")}</p>`).join("")}</section>`;
-  }).join("");
-  const propertyMarkup = properties.map(([label, value]) => `<p><strong>${label}:</strong> ${escapeHtml(value)}</p>`).join("");
-  const sizeLabels = {
-    tiny: "Miúdo",
-    small: "Pequeno",
-    medium: "Médio",
-    large: "Grande",
-    huge: "Enorme",
-    gargantuan: "Imenso",
-  };
-  const alignmentLabels = {
-    "lawful good": "leal e bom",
-    "neutral good": "neutro e bom",
-    "chaotic good": "caótico e bom",
-    "lawful neutral": "leal e neutro",
-    "true neutral": "neutro",
-    "neutral": "neutro",
-    "chaotic neutral": "caótico e neutro",
-    "lawful evil": "leal e mau",
-    "neutral evil": "neutro e mau",
-    "chaotic evil": "caótico e mau",
-    "unaligned": "sem alinhamento",
-  };
-  const size = sizeLabels[normalizeSearchTerm(monster.size)] || monster.size || "";
-  const alignment = alignmentLabels[normalizeSearchTerm(monster.alignment)] || monster.alignment || "";
+  const abilities = ABILITY_LABELS
+    .map(([key, label]) => `<span>${label} <strong>${escapeHtml(monster[key] ?? "—")}</strong></span>`).join("");
+  const propertyMarkup = getMonsterProperties(monster).map(([label, value]) => `<p><strong>${label}:</strong> ${escapeHtml(value)}</p>`).join("");
+  const features = getMonsterFeatureGroups(monster)
+    .map(([heading, entries]) => `<section><h4>${heading}</h4>${entries.map(renderMonsterEntry).join("")}</section>`)
+    .join("");
   const source = monster.document__title || (monster.provider === "open5e" ? "Open5e" : "SRD 2014");
   return `<div class="combatant-tooltip" id="${tooltipId}" role="tooltip">
-    <div class="tooltip-heading"><strong>${escapeHtml(getLocalizedMonsterName(monster.name))}</strong><span>ND ${escapeHtml(monster.challenge_rating ?? monster.cr ?? "—")}</span></div>
-    <p class="tooltip-subtitle">${escapeHtml(size)} ${escapeHtml(getLocalizedMonsterType(monster.type || ""))}${alignment ? ` · ${escapeHtml(alignment)}` : ""}</p>
-    <p class="tooltip-subtitle">Fonte: ${escapeHtml(source)}</p>
-    <p><strong>CA:</strong> ${escapeHtml(getArmorClassValue(monster) || "—")} · <strong>PV:</strong> ${escapeHtml(monster.hit_points ?? "—")} ${monster.hit_dice ? `(${escapeHtml(monster.hit_dice)})` : ""}</p>
-    <p><strong>Deslocamento:</strong> ${escapeHtml(getLocalizedMovement(monster.speed) || "—")}</p>
+    <div class="tooltip-heading"><strong>${escapeHtml(getLocalizedMonsterName(monster.name))}</strong><span>${t("ND")} ${escapeHtml(formatChallengeRating(monster.challenge_rating ?? monster.cr))}</span></div>
+    <p class="tooltip-subtitle">${escapeHtml(getMonsterSubtitle(monster))}</p>
+    <p class="tooltip-subtitle">${t("Fonte:")} ${escapeHtml(source)}</p>
+    <p><strong>${t("CA")}:</strong> ${escapeHtml(localizeArmor(monster))} · <strong>${t("PV")}:</strong> ${escapeHtml(monster.hit_points ?? "—")} ${monster.hit_dice ? `(${escapeHtml(monster.hit_dice)})` : ""}</p>
+    <p><strong>${t("Deslocamento")}:</strong> ${escapeHtml(getLocalizedMovement(monster.speed) || "—")}</p>
     <div class="tooltip-abilities">${abilities}</div>
     ${propertyMarkup ? `<section>${propertyMarkup}</section>` : ""}
     ${features}
@@ -1203,7 +1169,7 @@ function renderCreatureSuggestions(creatures) {
   listbox.innerHTML = creatures.map((creature, index) => `
     <button class="creature-suggestion" type="button" role="option" aria-selected="false" data-creature-index="${index}">
       <span><strong>${escapeHtml(getLocalizedMonsterName(creature.name))}</strong><small>${escapeHtml(creature.name)}</small></span>
-      <span class="suggestion-source">${escapeHtml({ open5e: creature.document__title || "Open5e", custom: "Minhas criaturas" }[creature.provider] || "SRD 2014")}</span>
+      <span class="suggestion-source">${escapeHtml({ open5e: creature.document__title || "Open5e", custom: t("Minhas criaturas") }[creature.provider] || "SRD 2014")}</span>
     </button>`).join("");
   listbox.hidden = creatures.length === 0;
   document.querySelector("#combatant-name").setAttribute("aria-expanded", String(creatures.length > 0));
@@ -1216,10 +1182,10 @@ async function searchInitiativeCreatures(query) {
   if (query.trim().length < 2) {
     state.initiative.creatures = [];
     renderCreatureSuggestions([]);
-    status.textContent = "Digite pelo menos 2 letras para buscar no SRD 2014.";
+    status.textContent = t("Digite pelo menos 2 letras para buscar no SRD 2014.");
     return;
   }
-  status.textContent = "Buscando no SRD 2014 e nas fontes abertas...";
+  status.textContent = t("Buscando no SRD 2014 e nas fontes abertas...");
   try {
     const searchTerm = getMonsterSearchName(query);
     const open5eParams = new URLSearchParams({ name__icontains: searchTerm, limit: "12" });
@@ -1250,17 +1216,17 @@ async function searchInitiativeCreatures(query) {
     state.initiative.creatures = [...customCreatures, ...officialCreatures, ...open5eCreatures].slice(0, 12);
     renderCreatureSuggestions(state.initiative.creatures);
     status.textContent = state.initiative.creatures.length
-      ? `${state.initiative.creatures.length} sugestão(ões) encontradas no SRD 2014 e em fontes abertas.`
-      : "Nenhuma criatura encontrada; você ainda pode adicionar o nome manualmente.";
+      ? t("{count} sugestão(ões) encontradas no SRD 2014 e em fontes abertas.", { count: state.initiative.creatures.length })
+      : t("Nenhuma criatura encontrada; você ainda pode adicionar o nome manualmente.");
     if (officialResult.status === "rejected" && open5eResult.status === "rejected" && !state.initiative.creatures.length) {
-      status.textContent = "Busca indisponível. Você ainda pode adicionar o nome manualmente.";
+      status.textContent = t("Busca indisponível. Você ainda pode adicionar o nome manualmente.");
     }
   } catch (error) {
     if (requestId !== state.initiative.requestId) return;
     console.error("Falha ao buscar criaturas para a iniciativa.", error);
     state.initiative.creatures = [];
     renderCreatureSuggestions([]);
-    status.textContent = "Busca indisponível. Você ainda pode adicionar o nome manualmente.";
+    status.textContent = t("Busca indisponível. Você ainda pode adicionar o nome manualmente.");
   }
   listbox.hidden = state.initiative.creatures.length === 0;
 }
@@ -1268,7 +1234,7 @@ async function searchInitiativeCreatures(query) {
 async function selectInitiativeCreature(creature) {
   const requestId = ++state.initiative.requestId;
   const status = document.querySelector("#creature-search-status");
-  status.textContent = `Carregando ficha de ${creature.name}...`;
+  status.textContent = t("Carregando ficha de {name}...", { name: creature.name });
   renderCreatureSuggestions([]);
   try {
     const detail = ["open5e", "custom"].includes(creature.provider)
@@ -1285,12 +1251,12 @@ async function selectInitiativeCreature(creature) {
       getLocalizedMonsterName(detail.name),
     );
     const source = detail.document__title || "SRD 2014";
-    status.textContent = `Ficha carregada: ${detail.name} (${source}). PV e CA preenchidos; ajuste se necessário.`;
+    status.textContent = t("Ficha carregada: {name} ({source}). PV e CA preenchidos; ajuste se necessário.", { name: detail.name, source });
   } catch (error) {
     if (requestId !== state.initiative.requestId) return;
     console.error(`Falha ao carregar ficha de ${creature.name}.`, error);
     state.initiative.selectedMonster = null;
-    status.textContent = "Não foi possível carregar a ficha. Os valores podem ser preenchidos manualmente.";
+    status.textContent = t("Não foi possível carregar a ficha. Os valores podem ser preenchidos manualmente.");
   }
 }
 
@@ -1331,9 +1297,9 @@ function setMonsterImageButton(button, imageUrl, name) {
     return;
   }
   button.dataset.imageUrl = imageUrl;
-  button.dataset.imageAlt = `Imagem de ${name}`;
-  button.setAttribute("aria-label", `Ampliar imagem de ${name}`);
-  button.title = `Ampliar imagem de ${name}`;
+  button.dataset.imageAlt = t("Imagem de {name}", { name });
+  button.setAttribute("aria-label", t("Ampliar imagem de {name}", { name }));
+  button.title = t("Ampliar imagem de {name}", { name });
 }
 
 function showMonsterImage(imageUrl, alt) {
@@ -1368,12 +1334,12 @@ async function loadOpen5eDocuments() {
   try {
     const data = await requestExternalJson(`${OPEN5E_BASE}/documents/?limit=100`, "api.open5e.com");
     state.monsters.documents = data.results;
-    select.innerHTML = `<option value="">Todas as fontes abertas</option>${data.results
+    select.innerHTML = `<option value="">${t("Todas as fontes abertas")}</option>${data.results
       .map((source) => `<option value="${escapeHtml(source.slug)}">${escapeHtml(source.title)}</option>`)
       .join("")}`;
   } catch (error) {
     console.error("Falha ao carregar o índice de publicações abertas do Open5e.", error);
-    showToast("Não foi possível carregar a lista de publicações Open5e.");
+    showToast(t("Não foi possível carregar a lista de publicações Open5e."));
   } finally {
     select.disabled = false;
   }
@@ -1453,42 +1419,62 @@ function navigate(viewName, { updateHistory = true, scroll = true } = {}) {
   if (scroll) window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+function formatCount(shown, total, singular, plural) {
+  return t("{shown} de {total} {noun}", { shown, total, noun: total === 1 ? singular : plural });
+}
+
+// Busca por nome original, nome em português ou apelido; aceita trechos do nome.
+function spellMatchesQuery(spell, rawQuery) {
+  const query = normalizeSearchTerm(rawQuery);
+  if (!query) return true;
+  const names = [spell.name, ...(spellTranslations[normalizeSearchTerm(spell.name)] || [])].map(normalizeSearchTerm);
+  return names.some((name) => name.includes(query) || query.split(/\s+/).every((term) => name.includes(term)));
+}
+
+function getSpellCardSubtitle(spell, fallback) {
+  const localizedName = getLocalizedName(spell.name, spellTranslations);
+  return localizedName !== spell.name ? spell.name : fallback;
+}
+
 async function loadSpells() {
   const requestId = ++state.spells.requestId;
   const feedback = document.querySelector("#spell-feedback");
   const count = document.querySelector("#spell-count");
-  feedback.textContent = "Consultando o compêndio...";
+  feedback.textContent = t("Consultando o compêndio...");
   feedback.classList.remove("is-error");
   document.querySelector("#spell-list").innerHTML = "";
-  document.querySelector("#spell-count").textContent = "Buscando...";
-  const params = new URLSearchParams();
-  if (state.spells.query) params.set("name", resolveSearchTerm(state.spells.query, spellTranslations));
-  if (state.spells.level) params.set("level", state.spells.level);
+  count.textContent = t("Buscando...");
   try {
-    const data = await requestApi(`/spells?${params}`);
+    if (!state.spells.catalog) {
+      const data = await requestApi("/spells");
+      state.spells.catalog = data.results;
+    }
     if (requestId !== state.spells.requestId) return;
-    state.spells.results = data.results;
+    state.spells.results = state.spells.catalog.filter((spell) => (
+      (state.spells.level === "" || String(spell.level) === state.spells.level)
+      && spellMatchesQuery(spell, state.spells.query)
+    ));
     state.spells.visibleCount = PAGE_SIZE;
     renderSpells();
-    count.textContent = `${Math.min(state.spells.visibleCount, data.count)} de ${data.count} ${data.count === 1 ? "magia" : "magias"}`;
-    feedback.textContent = state.spells.results.length ? "" : "Nenhuma magia encontrada. Tente outro nome ou círculo.";
+    count.textContent = formatCount(Math.min(state.spells.visibleCount, state.spells.results.length), state.spells.results.length, t("magia"), t("magias"));
+    feedback.textContent = state.spells.results.length ? "" : t("Nenhuma magia encontrada. Tente outro nome ou círculo.");
     document.querySelector("#spell-more").hidden = state.spells.results.length <= state.spells.visibleCount;
   } catch (error) {
     if (requestId !== state.spells.requestId) return;
     console.error("Falha ao carregar magias da D&D 5e API.", error);
-    feedback.textContent = "Não foi possível carregar as magias. Verifique sua conexão e tente novamente.";
+    feedback.textContent = t("Não foi possível carregar as magias. Verifique sua conexão e tente novamente.");
     feedback.classList.add("is-error");
-    count.textContent = "Compêndio indisponível";
+    count.textContent = t("Compêndio indisponível");
   }
 }
 
 function renderSpells() {
   const list = document.querySelector("#spell-list");
-  list.innerHTML = state.spells.results.slice(0, state.spells.visibleCount).map((spell) => `
-    <button class="resource-card" type="button" data-resource="spells" data-index="${state.spells.results.indexOf(spell)}">
+  list.innerHTML = state.spells.results.slice(0, state.spells.visibleCount).map((spell, index) => `
+    <button class="resource-card" type="button" data-resource="spells" data-index="${index}">
       <div class="resource-card-top"><h3>${escapeHtml(getLocalizedName(spell.name, spellTranslations))}</h3></div>
-      <p>${getLocalizedName(spell.name, spellTranslations) !== spell.name ? escapeHtml(spell.name) : "Magia · SRD 2014"}</p>
-      <div class="resource-meta"><span>Ver círculo, alcance e descrição</span>${icon("arrow-right")}</div>
+      <p>${escapeHtml(getSpellCardSubtitle(spell, spell.level === 0 ? t("Truque · SRD 2014") : t("{level}º círculo · SRD 2014", { level: spell.level })))}</p>
+      <div class="resource-meta"><span>${t("Ver círculo, alcance e descrição")}</span>${icon("arrow-right")}</div>
     </button>`).join("");
 }
 
@@ -1496,37 +1482,28 @@ async function loadTricks() {
   const requestId = ++state.tricks.requestId;
   const feedback = document.querySelector("#trick-feedback");
   const count = document.querySelector("#trick-count");
-  feedback.textContent = "Consultando os truques...";
+  feedback.textContent = t("Consultando os truques...");
   feedback.classList.remove("is-error");
   document.querySelector("#trick-list").innerHTML = "";
-  count.textContent = "Buscando...";
+  count.textContent = t("Buscando...");
   try {
     if (!state.tricks.catalog) {
       const data = await requestApi("/spells?level=0");
       state.tricks.catalog = data.results;
     }
     if (requestId !== state.tricks.requestId) return;
-    const query = normalizeSearchTerm(state.tricks.query);
-    state.tricks.results = state.tricks.catalog.filter((spell) => (
-      normalizeSearchTerm(spell.name).includes(query)
-      || normalizeSearchTerm(getLocalizedName(spell.name, spellTranslations)).includes(query)
-    ));
+    state.tricks.results = state.tricks.catalog.filter((spell) => spellMatchesQuery(spell, state.tricks.query));
     state.tricks.visibleCount = PAGE_SIZE;
     renderTricks();
-    count.textContent = `${Math.min(state.tricks.visibleCount, state.tricks.results.length)} de ${state.tricks.results.length} ${state.tricks.results.length === 1 ? "truque" : "truques"}`;
-    feedback.textContent = state.tricks.results.length ? "" : "Nenhum truque encontrado. Tente outro nome.";
+    count.textContent = formatCount(Math.min(state.tricks.visibleCount, state.tricks.results.length), state.tricks.results.length, t("truque"), t("truques"));
+    feedback.textContent = state.tricks.results.length ? "" : t("Nenhum truque encontrado. Tente outro nome.");
     document.querySelector("#trick-more").hidden = state.tricks.results.length <= state.tricks.visibleCount;
-    const missingTranslations = state.tricks.catalog.filter((spell) => !trickDescriptions[normalizeSearchTerm(spell.name)]);
-    if (missingTranslations.length) {
-      console.error("Descrições de truques sem tradução PT-BR.", missingTranslations.map((spell) => spell.name));
-      feedback.textContent = `${missingTranslations.length} truque(s) ainda sem descrição traduzida.`;
-    }
   } catch (error) {
     if (requestId !== state.tricks.requestId) return;
     console.error("Falha ao carregar truques da D&D 5e API.", error);
-    feedback.textContent = "Não foi possível carregar os truques. Verifique sua conexão e tente novamente.";
+    feedback.textContent = t("Não foi possível carregar os truques. Verifique sua conexão e tente novamente.");
     feedback.classList.add("is-error");
-    count.textContent = "Compêndio indisponível";
+    count.textContent = t("Compêndio indisponível");
   }
 }
 
@@ -1536,8 +1513,8 @@ function renderTricks() {
     .map((spell, index) => `
       <button class="resource-card" type="button" data-resource="tricks" data-index="${index}">
         <div class="resource-card-top"><h3>${escapeHtml(getLocalizedName(spell.name, spellTranslations))}</h3></div>
-        <p>${getLocalizedName(spell.name, spellTranslations) !== spell.name ? escapeHtml(spell.name) : "Truque · SRD 2014"}</p>
-        <div class="resource-meta"><span>Ver descrição em português</span>${icon("arrow-right")}</div>
+        <p>${escapeHtml(getSpellCardSubtitle(spell, t("Truque · SRD 2014")))}</p>
+        <div class="resource-meta"><span>${t("Ver alcance, duração e descrição")}</span>${icon("arrow-right")}</div>
       </button>`).join("");
 }
 
@@ -1545,16 +1522,16 @@ async function loadMonsters({ append = false } = {}) {
   const requestId = ++state.monsters.requestId;
   const feedback = document.querySelector("#monster-feedback");
   const count = document.querySelector("#monster-count");
-  feedback.textContent = "Consultando o bestiário...";
+  feedback.textContent = t("Consultando o bestiário...");
   feedback.classList.remove("is-error");
   if (!append) {
     document.querySelector("#monster-list").innerHTML = "";
-    count.textContent = "Buscando...";
+    count.textContent = t("Buscando...");
   }
   document.querySelector("#monster-source-label").textContent = {
-    open5e: "Open5e · conteúdo de fontes abertas",
-    custom: "Minhas criaturas · salvas neste navegador",
-  }[state.monsters.provider] || "D&D 5e API · regras de 2014";
+    open5e: t("Open5e · conteúdo de fontes abertas"),
+    custom: t("Minhas criaturas · salvas neste navegador"),
+  }[state.monsters.provider] || t("D&D 5e API · regras de 2014");
   try {
     let data;
     if (state.monsters.provider === "open5e") {
@@ -1604,12 +1581,11 @@ async function loadMonsters({ append = false } = {}) {
     }
     renderMonsters();
     loadVisibleMonsterImages(requestId);
-    const visibleCount = Math.min(state.monsters.visibleCount, state.monsters.total);
-    count.textContent = `${visibleCount} de ${state.monsters.total} ${state.monsters.total === 1 ? "criatura" : "criaturas"}`;
+    count.textContent = formatCount(Math.min(state.monsters.visibleCount, state.monsters.total), state.monsters.total, t("criatura"), t("criaturas"));
     feedback.textContent = state.monsters.results.length ? "" : (
       state.monsters.provider === "custom" && !state.customCreatures.length
-        ? "Nenhuma criatura importada ainda. Use “Importar criaturas (JSON)”."
-        : "Nenhuma criatura encontrada. Tente outro nome ou publicação."
+        ? t("Nenhuma criatura importada ainda. Use “Importar criaturas (JSON)”.")
+        : t("Nenhuma criatura encontrada. Tente outro nome ou publicação.")
     );
     document.querySelector("#monster-more").hidden = state.monsters.provider === "open5e"
       ? !state.monsters.next
@@ -1622,24 +1598,93 @@ async function loadMonsters({ append = false } = {}) {
         : "Falha ao carregar criaturas da D&D 5e API.",
       error,
     );
-    feedback.textContent = "Não foi possível carregar as criaturas. Verifique sua conexão e tente novamente.";
+    feedback.textContent = t("Não foi possível carregar as criaturas. Verifique sua conexão e tente novamente.");
     feedback.classList.add("is-error");
-    count.textContent = "Bestiário indisponível";
+    count.textContent = t("Bestiário indisponível");
   }
 }
 
 function renderMonsters() {
-  document.querySelector("#monster-list").innerHTML = state.monsters.results.slice(0, state.monsters.visibleCount).map((monster, index) => `
+  document.querySelector("#monster-list").innerHTML = state.monsters.results.slice(0, state.monsters.visibleCount).map((monster, index) => {
+    const name = getLocalizedMonsterName(monster.name);
+    const imageUrl = getMonsterImageUrl(monster) || state.monsters.imageCache.get(getMonsterImageCacheKey(monster)) || "";
+    return `
     <article class="resource-card">
       <div class="resource-card-top">
-        <button class="resource-card-open monster-card-name" type="button" data-resource="monsters" data-index="${index}"><h3>${escapeHtml(getLocalizedMonsterName(monster.name))}</h3></button>
-        <button class="monster-image-button" type="button" data-image-preview data-image-url="${escapeHtml(getMonsterImageUrl(monster) || state.monsters.imageCache.get(getMonsterImageCacheKey(monster)) || "")}" data-image-alt="Imagem de ${escapeHtml(getLocalizedMonsterName(monster.name))}" aria-label="Ampliar imagem de ${escapeHtml(getLocalizedMonsterName(monster.name))}" title="Ampliar imagem" ${getMonsterImageUrl(monster) || state.monsters.imageCache.get(getMonsterImageCacheKey(monster)) ? "" : "hidden"}>▧</button>
+        <button class="resource-card-open monster-card-name" type="button" data-resource="monsters" data-index="${index}"><h3>${escapeHtml(name)}</h3></button>
+        <button class="monster-image-button" type="button" data-image-preview data-image-url="${escapeHtml(imageUrl)}" data-image-alt="${escapeHtml(t("Imagem de {name}", { name }))}" aria-label="${escapeHtml(t("Ampliar imagem de {name}", { name }))}" title="${t("Ampliar imagem")}" ${imageUrl ? "" : "hidden"}>▧</button>
       </div>
       <button class="resource-card-details" type="button" data-resource="monsters" data-index="${index}">
-        <p>${getLocalizedMonsterName(monster.name) !== monster.name ? `${escapeHtml(monster.name)} · ` : ""}${escapeHtml(monster.document__title || "SRD 2014")}</p>
-        <span class="resource-meta"><span>${escapeHtml(monster.type ? getLocalizedMonsterType(monster.type) : "Ver ficha e estatísticas")}</span>${icon("arrow-right")}</span>
+        <p>${name !== monster.name ? `${escapeHtml(monster.name)} · ` : ""}${escapeHtml(monster.document__title || "SRD 2014")}</p>
+        <span class="resource-meta"><span>${escapeHtml(monster.type ? getLocalizedMonsterType(monster.type) : t("Ver ficha e estatísticas"))}</span>${icon("arrow-right")}</span>
       </button>
-    </article>`).join("");
+    </article>`;
+  }).join("");
+}
+
+// Converte o markdown simples das descrições do SRD (tabelas, listas, títulos e negrito) em HTML seguro.
+function renderSpellText(paragraphs) {
+  const inline = (text) => escapeHtml(text)
+    .replace(/\*\*\*(.+?)\*\*\*/g, "<strong>$1</strong>")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>");
+  const cells = (row) => row.trim().replace(/^\||\|$/g, "").split("|").map((cell) => cell.trim());
+  const html = [];
+  let index = 0;
+  const lines = paragraphs.filter((line) => line.trim());
+  while (index < lines.length) {
+    const line = lines[index].trim();
+    if (line.startsWith("|")) {
+      const rows = [];
+      while (index < lines.length && lines[index].trim().startsWith("|")) rows.push(lines[index++]);
+      const [header, ...rest] = rows;
+      const body = rest.filter((row) => !/^\|?[\s:|-]+\|?$/.test(row.trim()));
+      html.push(`<div class="detail-table-wrap"><table class="detail-table"><thead><tr>${cells(header).map((cell) => `<th>${inline(cell)}</th>`).join("")}</tr></thead><tbody>${body.map((row) => `<tr>${cells(row).map((cell) => `<td>${inline(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`);
+    } else if (line.startsWith("- ")) {
+      const items = [];
+      while (index < lines.length && lines[index].trim().startsWith("- ")) items.push(lines[index++].trim().slice(2));
+      html.push(`<ul>${items.map((item) => `<li>${inline(item)}</li>`).join("")}</ul>`);
+    } else if (line.startsWith("#")) {
+      html.push(`<h4>${inline(line.replace(/^#+\s*/, ""))}</h4>`);
+      index += 1;
+    } else {
+      html.push(`<p>${inline(line)}</p>`);
+      index += 1;
+    }
+  }
+  return html.join("");
+}
+
+function renderSpellDetails(detail) {
+  const translation = getSpellTranslation(detail.name);
+  const components = (detail.components || []).map((component) => ({
+    V: t("Verbal"),
+    S: t("Somático"),
+    M: t("Material"),
+  })[component] || component);
+  const school = spellSchoolTranslations[normalizeSearchTerm(detail.school?.name)] || detail.school?.name;
+  document.querySelector("#detail-chips").innerHTML = [
+    translation ? t("Nome original: {name}", { name: detail.name }) : "",
+    detail.level === 0 ? t("Truque") : t("{level}º círculo", { level: detail.level }),
+    school ? t("Escola: {school}", { school }) : "",
+    t("Conjuração: {value}", { value: localizeSpellValue(detail.casting_time) }),
+    t("Alcance: {value}", { value: localizeSpellValue(detail.range) }),
+    t("Duração: {value}", { value: localizeSpellValue(detail.duration) }),
+    components.length ? t("Componentes: {value}", { value: components.join(", ") }) : "",
+    detail.concentration ? t("Concentração") : "",
+    detail.ritual ? t("Ritual") : "",
+    detail.classes?.length
+      ? t("Classes: {value}", { value: detail.classes.map((spellClass) => spellClassTranslations[normalizeSearchTerm(spellClass.name)] || spellClass.name).join(", ") })
+      : "",
+  ].filter(Boolean).map((chip) => `<span class="detail-chip">${escapeHtml(chip)}</span>`).join("");
+  const description = translation?.desc || detail.desc || [];
+  const higherLevel = translation ? translation.higherLevel || [] : detail.higher_level || [];
+  const materialText = translation?.material || detail.material;
+  const material = materialText ? `<p><strong>${t("Material")}:</strong> ${escapeHtml(materialText)}</p>` : "";
+  const notice = LANG !== "en" && !translation
+    ? `<p class="is-error">${t("A tradução desta magia ainda não está disponível; o texto original da API é exibido abaixo.")}</p>`
+    : "";
+  return `${notice}${renderSpellText(description)}${material}${higherLevel.length ? `<h3>${t("Em círculos superiores")}</h3>${renderSpellText(higherLevel)}` : ""}`;
 }
 
 async function showResourceDetails(category, index, resourceOverride = null) {
@@ -1648,17 +1693,16 @@ async function showResourceDetails(category, index, resourceOverride = null) {
   const dialog = document.querySelector("#detail-dialog");
   const body = document.querySelector("#detail-body");
   const isSpell = category === "spells" || category === "tricks";
-  const isTrick = category === "tricks";
   document.querySelector("#detail-kicker").textContent = isSpell
-    ? `${category === "tricks" ? "TRUQUE" : "MAGIA"} · D&D 5E 2014`
-    : "CRIATURA · D&D 5E 2014";
+    ? `${resource.level === 0 || category === "tricks" ? t("TRUQUE") : t("MAGIA")} · D&D 5E 2014`
+    : t("CRIATURA · D&D 5E 2014");
   document.querySelector("#detail-title").textContent = isSpell
     ? getLocalizedName(resource.name, spellTranslations)
     : getLocalizedMonsterName(resource.name);
   const detailImageButton = document.querySelector("#detail-image-button");
   setMonsterImageButton(detailImageButton, "", "");
   document.querySelector("#detail-chips").innerHTML = "";
-  body.textContent = "Carregando detalhes...";
+  body.textContent = t("Carregando detalhes...");
   dialog.showModal();
   try {
     const detail = category === "monsters" && ["open5e", "custom"].includes(resource.provider)
@@ -1668,95 +1712,44 @@ async function showResourceDetails(category, index, resourceOverride = null) {
     if (category === "monsters") {
       const monsterDetail = { ...detail, provider: resource.provider || "dnd5e" };
       const imageUrl = getMonsterImageUrl(monsterDetail);
+      const name = getLocalizedMonsterName(detail.name);
       state.monsters.imageCache.set(getMonsterImageCacheKey(resource), imageUrl);
-      setMonsterImageButton(
-        detailImageButton,
-        imageUrl,
-        getLocalizedMonsterName(detail.name),
-      );
+      setMonsterImageButton(detailImageButton, imageUrl, name);
       imageMarkup = imageUrl
-        ? `<button class="detail-monster-image" type="button" data-image-preview data-image-url="${escapeHtml(imageUrl)}" data-image-alt="Imagem de ${escapeHtml(getLocalizedMonsterName(detail.name))}" aria-label="Ampliar imagem de ${escapeHtml(getLocalizedMonsterName(detail.name))}"><img src="${escapeHtml(imageUrl)}" alt="" loading="lazy" /><span>Ampliar imagem</span></button>`
+        ? `<button class="detail-monster-image" type="button" data-image-preview data-image-url="${escapeHtml(imageUrl)}" data-image-alt="${escapeHtml(t("Imagem de {name}", { name }))}" aria-label="${escapeHtml(t("Ampliar imagem de {name}", { name }))}"><img src="${escapeHtml(imageUrl)}" alt="" loading="lazy" /><span>${t("Ampliar imagem")}</span></button>`
         : "";
     }
     if (isSpell) {
-      const trickKey = normalizeSearchTerm(detail.name);
-      const translatedDescription = isTrick ? trickDescriptions[trickKey] : null;
-      if (isTrick && !translatedDescription) {
-        console.error(`Tradução PT-BR não cadastrada para o truque "${detail.name}".`);
-      }
-      const components = (detail.components || []).map((component) => ({
-        V: "Verbal",
-        S: "Somático",
-        M: "Material",
-      })[component] || component);
-      const school = spellSchoolTranslations[normalizeSearchTerm(detail.school?.name)] || detail.school?.name;
-      document.querySelector("#detail-chips").innerHTML = [
-        `Nome original na API: ${detail.name}`,
-        detail.level === 0 ? "Truque" : `${detail.level}º círculo`,
-        isTrick && school ? `Escola: ${school}` : school,
-        isTrick ? `Conjuração: ${localizeSpellValue(detail.casting_time)}` : detail.casting_time,
-        isTrick ? `Alcance: ${localizeSpellValue(detail.range)}` : detail.range,
-        isTrick ? `Duração: ${localizeSpellValue(detail.duration)}` : detail.duration,
-        isTrick && components.length ? `Componentes: ${components.join(", ")}` : "",
-        isTrick && detail.classes?.length
-          ? `Classes: ${detail.classes.map((spellClass) => spellClassTranslations[normalizeSearchTerm(spellClass.name)] || spellClass.name).join(", ")}`
-          : "",
-      ].filter(Boolean).map((chip) => `<span class="detail-chip">${escapeHtml(chip)}</span>`).join("");
-      const material = isTrick && detail.material
-        ? `<p><strong>Material:</strong> ${escapeHtml(trickMaterialTranslations[trickKey] || detail.material)}</p>`
-        : "";
-      const description = translatedDescription || detail.desc || [];
-      const translationNotice = isTrick && !translatedDescription
-        ? `<p class="is-error">A tradução deste truque ainda não está disponível; o texto original da API é exibido abaixo.</p><h3>Descrição original</h3>`
-        : "";
-      body.innerHTML = `${translationNotice}${(description).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}${material}${detail.higher_level?.length ? `<h3>Em círculos superiores</h3>${detail.higher_level.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}` : ""}`;
+      body.innerHTML = renderSpellDetails(detail);
     } else {
-      const armor = Array.isArray(detail.armor_class)
-        ? detail.armor_class.map((entry) => `${entry.value}${entry.type ? ` (${entry.type})` : ""}`).join(", ")
-        : detail.armor_class ?? "—";
-      const challengeRating = detail.challenge_rating ?? detail.cr ?? "—";
       document.querySelector("#detail-chips").innerHTML = [
-        `Nome original: ${detail.name}`,
-        detail.size,
-        detail.type ? getLocalizedMonsterType(detail.type) : "",
-        detail.alignment,
-        `ND ${challengeRating}`,
+        LANG === "en" ? "" : t("Nome original: {name}", { name: detail.name }),
+        getMonsterSubtitle(detail),
+        `${t("ND")} ${formatChallengeRating(detail.challenge_rating ?? detail.cr)}`,
         detail.document__title,
       ].filter(Boolean).map((chip) => `<span class="detail-chip">${escapeHtml(chip)}</span>`).join("");
-      const abilities = [
-        ["strength", "FOR"],
-        ["dexterity", "DES"],
-        ["constitution", "CON"],
-        ["intelligence", "INT"],
-        ["wisdom", "SAB"],
-        ["charisma", "CAR"],
-      ].map(([ability, abbreviation]) => `${abbreviation} ${detail[ability] ?? "—"}`).join(" · ");
-      const actionGroups = [
-        ["Habilidades", detail.special_abilities],
-        ["Ações", detail.actions],
-        ["Ações bônus", detail.bonus_actions],
-        ["Reações", detail.reactions],
-        ["Ações lendárias", detail.legendary_actions],
-        ["Ações de covil", detail.lair_actions],
-      ].map(([heading, entries]) => {
-        const content = (entries || []).map((entry) => `<p><strong>${escapeHtml(entry.name)}.</strong> ${escapeHtml(entry.desc)}</p>`).join("");
-        return content ? `<h3>${heading}</h3>${content}` : "";
-      }).join("");
-      const description = detail.desc ? `<p>${escapeHtml(detail.desc)}</p>` : "";
+      const abilities = ABILITY_LABELS.map(([ability, abbreviation]) => `${abbreviation} ${detail[ability] ?? "—"}`).join(" · ");
+      const properties = getMonsterProperties(detail).map(([label, value]) => `<p><strong>${label}:</strong> ${escapeHtml(value)}</p>`).join("");
+      const actionGroups = getMonsterFeatureGroups(detail)
+        .map(([heading, entries]) => `<h3>${heading}</h3>${entries.map(renderMonsterEntry).join("")}`)
+        .join("");
+      const description = detail.desc ? renderSpellText(translateMonsterText(detail.desc).split("\n")) : "";
       const sourceUrl = getSafeExternalUrl(detail.document__url);
       const licenseUrl = getSafeExternalUrl(detail.document__license_url);
       const sourceLinks = [
-        sourceUrl ? `<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">Fonte ${icon("arrow-up-right")}</a>` : "",
-        licenseUrl ? `<a href="${escapeHtml(licenseUrl)}" target="_blank" rel="noopener noreferrer">Licença ${icon("arrow-up-right")}</a>` : "",
+        sourceUrl ? `<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">${t("Fonte")} ${icon("arrow-up-right")}</a>` : "",
+        licenseUrl ? `<a href="${escapeHtml(licenseUrl)}" target="_blank" rel="noopener noreferrer">${t("Licença")} ${icon("arrow-up-right")}</a>` : "",
       ].filter(Boolean).join(" · ");
-      body.innerHTML = `${imageMarkup}${description}<p><strong>Classe de Armadura:</strong> ${escapeHtml(armor)} · <strong>Pontos de Vida:</strong> ${escapeHtml(detail.hit_points)} (${escapeHtml(detail.hit_dice)})</p><p><strong>Deslocamento:</strong> ${escapeHtml(getLocalizedMovement(detail.speed) || "—")}</p><p><strong>Atributos:</strong> ${escapeHtml(abilities)}</p>${detail.languages ? `<p><strong>Idiomas:</strong> ${escapeHtml(detail.languages)}</p>` : ""}${actionGroups}${sourceLinks ? `<p>${sourceLinks}</p>` : ""}`;
+      body.innerHTML = `${imageMarkup}${description}<p><strong>${t("Classe de Armadura")}:</strong> ${escapeHtml(localizeArmor(detail))} · <strong>${t("Pontos de Vida")}:</strong> ${escapeHtml(detail.hit_points ?? "—")}${detail.hit_dice ? ` (${escapeHtml(detail.hit_dice)})` : ""}</p><p><strong>${t("Deslocamento")}:</strong> ${escapeHtml(getLocalizedMovement(detail.speed) || "—")}</p><p><strong>${t("Atributos")}:</strong> ${escapeHtml(abilities)}</p>${properties}${actionGroups}${sourceLinks ? `<p>${sourceLinks}</p>` : ""}`;
     }
     document.querySelector(".dialog-source").textContent = category === "monsters" && detail.document__title
-      ? `Fonte: ${detail.document__title}${detail.document__license ? ` · ${detail.document__license}` : ""}`
-      : "Dados de referência da API D&D 5e · 2014";
+      ? `${t("Fonte:")} ${detail.document__title}${detail.document__license ? ` · ${detail.document__license}` : ""}`
+      : LANG !== "en" && (isSpell ? getSpellTranslation(detail.name) : detail.desc ? monsterTextPt[String(detail.desc).trim()] : detail.actions?.some((entry) => monsterTextPt[String(entry.desc).trim()]))
+        ? t("Dados da API D&D 5e · 2014 · tradução própria para português")
+        : t("Dados de referência da API D&D 5e · 2014");
   } catch (error) {
     console.error(`Falha ao carregar detalhes de ${category}.`, error);
-    body.textContent = "Não foi possível carregar os detalhes. Feche esta janela e tente novamente.";
+    body.textContent = t("Não foi possível carregar os detalhes. Feche esta janela e tente novamente.");
   }
 }
 
@@ -1797,11 +1790,11 @@ function renderRuleBody(rule) {
 function showRuleDetails(rule) {
   const dialog = document.querySelector("#detail-dialog");
   setMonsterImageButton(document.querySelector("#detail-image-button"), "", "");
-  document.querySelector("#detail-kicker").textContent = `REGRA · ${ruleCategories[rule.category]}`;
+  document.querySelector("#detail-kicker").textContent = `${t("REGRA")} · ${ruleCategories[rule.category]}`;
   document.querySelector("#detail-title").textContent = rule.title;
   document.querySelector("#detail-chips").innerHTML = "";
   document.querySelector("#detail-body").innerHTML = renderRuleBody(rule);
-  document.querySelector(".dialog-source").textContent = "Resumo próprio baseado nas regras básicas de 2014";
+  document.querySelector(".dialog-source").textContent = t("Resumo próprio baseado nas regras básicas de 2014");
   if (!dialog.open) dialog.showModal();
 }
 
@@ -1811,12 +1804,12 @@ function renderInitiativeRuleResults() {
   const query = document.querySelector("#initiative-rule-search").value;
   const results = query.trim()
     ? searchRules(query).slice(0, 6)
-    : SUGGESTED_RULES.map((title) => quickRules.find((rule) => rule.title === title)).filter(Boolean);
+    : SUGGESTED_RULES.map((key) => quickRules.find((rule) => rule.key === key)).filter(Boolean);
   const container = document.querySelector("#initiative-rule-results");
   container.innerHTML = results.length
-    ? `${query.trim() ? "" : `<small class="rule-results-label">Mais consultadas</small>`}${results.map((rule) => `
-      <button class="rule-result" type="button" data-rule-title="${escapeHtml(rule.title)}"><span>${escapeHtml(rule.title)}</span><small>${escapeHtml(ruleCategories[rule.category])}</small></button>`).join("")}`
-    : `<small class="rule-results-label">Nenhuma regra encontrada.</small>`;
+    ? `${query.trim() ? "" : `<small class="rule-results-label">${t("Mais consultadas")}</small>`}${results.map((rule) => `
+      <button class="rule-result" type="button" data-rule-key="${escapeHtml(rule.key)}"><span>${escapeHtml(rule.title)}</span><small>${escapeHtml(ruleCategories[rule.category])}</small></button>`).join("")}`
+    : `<small class="rule-results-label">${t("Nenhuma regra encontrada.")}</small>`;
 }
 
 function renderRules() {
@@ -1827,10 +1820,10 @@ function renderRules() {
       <h2>${escapeHtml(rule.title)}</h2>
       ${renderRuleBody(rule)}
     </article>`).join("");
-  document.querySelector("#rules-count").textContent = `${filteredRules.length} ${filteredRules.length === 1 ? "regra" : "regras"}`;
+  document.querySelector("#rules-count").textContent = t(filteredRules.length === 1 ? "{count} regra" : "{count} regras", { count: filteredRules.length });
   document.querySelector("#rules-feedback").textContent = filteredRules.length
     ? ""
-    : "Nenhuma regra encontrada. Tente outra palavra.";
+    : t("Nenhuma regra encontrada. Tente outra palavra.");
 }
 
 async function searchInitiativeSpells(query) {
@@ -1839,54 +1832,42 @@ async function searchInitiativeSpells(query) {
   const status = document.querySelector("#initiative-spell-status");
   if (!listbox) return;
 
-  const normalizedQuery = normalizeSearchTerm(query);
-  if (normalizedQuery.length < 2) {
+  if (normalizeSearchTerm(query).length < 2) {
     state.initiativeSpells.results = [];
     listbox.innerHTML = "";
     listbox.hidden = true;
     document.querySelector("#initiative-spell-search").setAttribute("aria-expanded", "false");
-    status.textContent = "Digite pelo menos 2 letras para buscar magias e truques.";
+    status.textContent = t("Digite pelo menos 2 letras para buscar magias e truques.");
     return;
   }
 
-  status.textContent = "Buscando no compêndio...";
+  status.textContent = t("Buscando no compêndio...");
   listbox.hidden = true;
   try {
-    if (!state.initiativeSpells.catalog || !state.initiativeSpells.trickNames) {
-      const [spellData, trickData] = await Promise.all([
-        requestApi("/spells"),
-        requestApi("/spells?level=0"),
-      ]);
+    if (!state.initiativeSpells.catalog) {
+      const spellData = await requestApi("/spells");
       state.initiativeSpells.catalog = spellData.results;
-      state.initiativeSpells.trickNames = new Set(trickData.results.map((spell) => normalizeSearchTerm(spell.name)));
     }
     if (requestId !== state.initiativeSpells.requestId) return;
 
     state.initiativeSpells.results = state.initiativeSpells.catalog
-      .filter((spell) => {
-        const aliases = spellTranslations[normalizeSearchTerm(spell.name)] || [];
-        return [spell.name, ...aliases].some((name) => {
-          const normalizedName = normalizeSearchTerm(name);
-          return normalizedName.includes(normalizedQuery)
-            || normalizedQuery.split(/\s+/).every((term) => normalizedName.includes(term));
-        });
-      })
-      .map((spell) => ({
-        ...spell,
-        category: state.initiativeSpells.trickNames.has(normalizeSearchTerm(spell.name)) ? "tricks" : "spells",
-      }))
+      .filter((spell) => spellMatchesQuery(spell, query))
+      .map((spell) => ({ ...spell, category: spell.level === 0 ? "tricks" : "spells" }))
       .slice(0, 12);
-    listbox.innerHTML = state.initiativeSpells.results.map((spell, index) => `
+    listbox.innerHTML = state.initiativeSpells.results.map((spell, index) => {
+      const localizedName = getLocalizedName(spell.name, spellTranslations);
+      return `
       <button class="spell-suggestion" type="button" role="option" data-resource="${spell.category}" data-index="${index}">
-        <span class="spell-suggestion-copy"><strong>${escapeHtml(getLocalizedName(spell.name, spellTranslations))}</strong><small>${escapeHtml(spell.name)}</small></span>
-        <span class="suggestion-level">${spell.category === "tricks" ? "Truque" : "Magia"}</span>
-      </button>`).join("");
+        <span class="spell-suggestion-copy"><strong>${escapeHtml(localizedName)}</strong>${localizedName !== spell.name ? `<small>${escapeHtml(spell.name)}</small>` : ""}</span>
+        <span class="suggestion-level">${spell.level === 0 ? t("Truque") : t("{level}º círculo", { level: spell.level })}</span>
+      </button>`;
+    }).join("");
 
     listbox.hidden = state.initiativeSpells.results.length === 0;
     document.querySelector("#initiative-spell-search").setAttribute("aria-expanded", String(!listbox.hidden));
     status.textContent = state.initiativeSpells.results.length
-      ? `${state.initiativeSpells.results.length} resultado(s). Selecione para abrir a ficha.`
-      : "Nenhuma magia ou truque encontrado. Tente o nome em português ou inglês.";
+      ? t("{count} resultado(s). Selecione para abrir a ficha.", { count: state.initiativeSpells.results.length })
+      : t("Nenhuma magia ou truque encontrado. Tente o nome em português ou inglês.");
   } catch (error) {
     if (requestId !== state.initiativeSpells.requestId) return;
     console.error("Falha ao buscar magias para a iniciativa.", error);
@@ -1894,7 +1875,7 @@ async function searchInitiativeSpells(query) {
     listbox.innerHTML = "";
     listbox.hidden = true;
     document.querySelector("#initiative-spell-search").setAttribute("aria-expanded", "false");
-    status.textContent = "Não foi possível consultar o compêndio. Verifique sua conexão e tente novamente.";
+    status.textContent = t("Não foi possível consultar o compêndio. Verifique sua conexão e tente novamente.");
   }
 }
 
@@ -1910,9 +1891,9 @@ function getHpStatus(combatant) {
   const hp = Number(combatant.hp);
   if (combatant.hp === "" || combatant.hp == null || !combatant.maxHp) return null;
   const ratio = hp / combatant.maxHp;
-  if (hp === 0) return { key: "down", label: combatant.isPlayer ? "Caído" : "Abatido", ratio };
-  if (ratio <= 0.25) return { key: "critical", label: "Crítico", ratio };
-  if (ratio <= 0.5) return { key: "bloodied", label: "Sangrando", ratio };
+  if (hp === 0) return { key: "down", label: combatant.isPlayer ? t("Caído") : t("Abatido"), ratio };
+  if (ratio <= 0.25) return { key: "critical", label: t("Crítico"), ratio };
+  if (ratio <= 0.5) return { key: "bloodied", label: t("Sangrando"), ratio };
   return { key: "healthy", label: "", ratio };
 }
 
@@ -1936,21 +1917,21 @@ function renderInitiative() {
       const tempHp = Number(combatant.tempHp) || 0;
       return `
       <div class="combatant-row ${combatant.id === state.currentCombatantId ? "is-current" : ""} ${combatant.hp === "0" ? "is-down" : ""} ${combatant.isPlayer ? "is-player" : ""}" data-combatant-row="${id}">
-        <label class="combatant-score" title="Iniciativa (clique para editar)"><span class="turn-index">${index + 1}º</span><input class="combatant-score-input" type="number" step="any" min="-10" max="99" value="${escapeHtml(combatant.score)}" data-score-for="${id}" aria-label="Iniciativa de ${escapeHtml(combatant.name)}" /></label>
+        <label class="combatant-score" title="${t("Iniciativa (clique para editar)")}"><span class="turn-index">${t("{n}º", { n: index + 1 })}</span><input class="combatant-score-input" type="number" step="any" min="-10" max="99" value="${escapeHtml(combatant.score)}" data-score-for="${id}" aria-label="${escapeHtml(t("Iniciativa de {name}", { name: combatant.name }))}" /></label>
         <div class="combatant-main">
         <span class="combatant-name-wrap">
           ${combatant.monster
-              ? `<span class="combatant-name-with-image"><button class="combatant-name creature-name" type="button" aria-describedby="creature-tip-${id}">${escapeHtml(combatant.name)}</button>${combatant.isPlayer ? `<span class="pc-badge" title="Personagem jogador">PJ</span>` : ""}${getMonsterImageUrl(combatant.monster) ? `<button class="monster-image-button" type="button" data-image-preview data-image-url="${escapeHtml(getMonsterImageUrl(combatant.monster))}" data-image-alt="Imagem de ${escapeHtml(combatant.name)}" aria-label="Ampliar imagem de ${escapeHtml(combatant.name)}" title="Ampliar imagem">${icon("image")}</button>` : ""}</span>${buildMonsterTooltip(combatant.monster, `creature-tip-${id}`)}`
-            : `<span class="combatant-name-with-image"><span class="combatant-name">${escapeHtml(combatant.name)}</span>${combatant.isPlayer ? `<span class="pc-badge" title="Personagem jogador">PJ</span>` : ""}</span>`}
+              ? `<span class="combatant-name-with-image"><button class="combatant-name creature-name" type="button" aria-describedby="creature-tip-${id}">${escapeHtml(combatant.name)}</button>${combatant.isPlayer ? `<span class="pc-badge" title="${t("Personagem jogador")}">${t("PJ")}</span>` : ""}${getMonsterImageUrl(combatant.monster) ? `<button class="monster-image-button" type="button" data-image-preview data-image-url="${escapeHtml(getMonsterImageUrl(combatant.monster))}" data-image-alt="${escapeHtml(t("Imagem de {name}", { name: combatant.name }))}" aria-label="${escapeHtml(t("Ampliar imagem de {name}", { name: combatant.name }))}" title="${t("Ampliar imagem")}">${icon("image")}</button>` : ""}</span>${buildMonsterTooltip(combatant.monster, `creature-tip-${id}`)}`
+            : `<span class="combatant-name-with-image"><span class="combatant-name">${escapeHtml(combatant.name)}</span>${combatant.isPlayer ? `<span class="pc-badge" title="${t("Personagem jogador")}">${t("PJ")}</span>` : ""}</span>`}
         </span>
         ${renderConditionChips(combatant)}
         </div>
         <span class="combatant-hp-cell">
-          <label class="combatant-hp-control"><input class="combatant-hp-input" type="number" min="0" max="${combatant.maxHp || 9999}" value="${escapeHtml(combatant.hp)}" data-hp-for="${id}" aria-label="Pontos de vida atuais de ${escapeHtml(combatant.name)}" /><span>${combatant.maxHp ? `/ ${escapeHtml(combatant.maxHp)}` : ""} PV${tempHp ? ` <b class="temp-hp-tag" title="PV temporários">+${tempHp}</b>` : ""}</span></label>
-          ${status ? `<span class="hp-bar hp-${status.key}" title="${Math.round(status.ratio * 100)}% dos PV"><span style="width: ${Math.round(status.ratio * 100)}%"></span></span>${status.label ? `<small class="hp-status hp-${status.key}">${status.label}</small>` : ""}` : ""}
+          <label class="combatant-hp-control"><input class="combatant-hp-input" type="number" min="0" max="${combatant.maxHp || 9999}" value="${escapeHtml(combatant.hp)}" data-hp-for="${id}" aria-label="${escapeHtml(t("Pontos de vida atuais de {name}", { name: combatant.name }))}" /><span>${combatant.maxHp ? `/ ${escapeHtml(combatant.maxHp)}` : ""} ${t("PV")}${tempHp ? ` <b class="temp-hp-tag" title="${t("PV temporários")}">+${tempHp}</b>` : ""}</span></label>
+          ${status ? `<span class="hp-bar hp-${status.key}" title="${t("{percent}% dos PV", { percent: Math.round(status.ratio * 100) })}"><span style="width: ${Math.round(status.ratio * 100)}%"></span></span>${status.label ? `<small class="hp-status hp-${status.key}">${status.label}</small>` : ""}` : ""}
         </span>
-        <span class="combatant-ac" title="Classe de Armadura"><small>CA</small><b>${combatant.ac === "" || combatant.ac == null ? "—" : escapeHtml(combatant.ac)}</b></span>
-        <button class="icon-button remove-combatant" type="button" data-remove="${id}" aria-label="Remover ${escapeHtml(combatant.name)}" title="Remover">${icon("x")}</button>
+        <span class="combatant-ac" title="${t("Classe de Armadura")}"><small>${t("CA")}</small><b>${combatant.ac === "" || combatant.ac == null ? "—" : escapeHtml(combatant.ac)}</b></span>
+        <button class="icon-button remove-combatant" type="button" data-remove="${id}" aria-label="${escapeHtml(t("Remover {name}", { name: combatant.name }))}" title="${t("Remover")}">${icon("x")}</button>
         ${renderCombatantExtras(combatant)}
       </div>`;
     }).join("");
@@ -1962,7 +1943,7 @@ function getActiveConditions(combatant) {
 
 function renderConditionChips(combatant) {
   const id = escapeHtml(combatant.id);
-  const chips = getActiveConditions(combatant).map((key) => `<button class="condition-chip ${key === "concentrating" ? "is-concentration" : ""}" type="button" data-condition-remove="${id}" data-condition-key="${key}" title="${escapeHtml(conditionDefs[key][1])} (clique para remover)">${escapeHtml(conditionDefs[key][0])} ${icon("x")}</button>`).join("");
+  const chips = getActiveConditions(combatant).map((key) => `<button class="condition-chip ${key === "concentrating" ? "is-concentration" : ""}" type="button" data-condition-remove="${id}" data-condition-key="${key}" title="${escapeHtml(t("{description} (clique para remover)", { description: conditionDefs[key][1] }))}">${escapeHtml(conditionDefs[key][0])} ${icon("x")}</button>`).join("");
   return chips ? `<div class="combatant-conditions">${chips}</div>` : "";
 }
 
@@ -1973,11 +1954,11 @@ function renderCombatantExtras(combatant) {
     .filter(([key]) => !active.includes(key))
     .map(([key, [label]]) => `<option value="${key}">${escapeHtml(label)}</option>`).join("");
   return `<div class="combatant-extras">
-    <form class="hp-quick" data-hp-quick="${id}"><input class="hp-quick-input" type="text" inputmode="numeric" autocomplete="off" placeholder="−8 ou +5" aria-label="Dano ou cura de ${escapeHtml(combatant.name)}" /><button class="mini-button" type="submit" data-hp-mode="damage" title="Causa dano (PV temporários absorvem primeiro)">Dano</button><button class="mini-button" type="submit" data-hp-mode="heal" title="Cura até o máximo de PV">Cura</button></form>
-    <label class="temp-hp-field" title="PV temporários absorvem dano antes dos PV atuais">Temp <input class="hp-quick-input temp-hp-input" type="number" min="0" max="999" value="${Number(combatant.tempHp) || ""}" placeholder="0" data-temp-for="${id}" aria-label="PV temporários de ${escapeHtml(combatant.name)}" /></label>
-    <button class="mini-button" type="button" data-duplicate="${id}" title="Duplicar combatente">${icon("copy")} Duplicar</button>
-    <button class="mini-button ${combatant.isPlayer ? "is-on" : ""}" type="button" data-toggle-player="${id}" aria-pressed="${Boolean(combatant.isPlayer)}" title="PJs são mantidos ao encerrar o combate e nunca são pulados">${combatant.isPlayer ? `${icon("check")} PJ` : "Marcar PJ"}</button>
-    <select class="condition-add" data-condition-for="${id}" aria-label="Adicionar condição a ${escapeHtml(combatant.name)}"><option value="">+ Condição</option>${options}</select>
+    <form class="hp-quick" data-hp-quick="${id}"><input class="hp-quick-input" type="text" inputmode="numeric" autocomplete="off" placeholder="${t("−8 ou +5")}" aria-label="${escapeHtml(t("Dano ou cura de {name}", { name: combatant.name }))}" /><button class="mini-button" type="submit" data-hp-mode="damage" title="${t("Causa dano (PV temporários absorvem primeiro)")}">${t("Dano")}</button><button class="mini-button" type="submit" data-hp-mode="heal" title="${t("Cura até o máximo de PV")}">${t("Cura")}</button></form>
+    <label class="temp-hp-field" title="${t("PV temporários absorvem dano antes dos PV atuais")}">${t("Temp")} <input class="hp-quick-input temp-hp-input" type="number" min="0" max="999" value="${Number(combatant.tempHp) || ""}" placeholder="0" data-temp-for="${id}" aria-label="${escapeHtml(t("PV temporários de {name}", { name: combatant.name }))}" /></label>
+    <button class="mini-button" type="button" data-duplicate="${id}" title="${t("Duplicar combatente")}">${icon("copy")} ${t("Duplicar")}</button>
+    <button class="mini-button ${combatant.isPlayer ? "is-on" : ""}" type="button" data-toggle-player="${id}" aria-pressed="${Boolean(combatant.isPlayer)}" title="${t("PJs são mantidos ao encerrar o combate e nunca são pulados")}">${combatant.isPlayer ? `${icon("check")} ${t("PJ")}` : t("Marcar PJ")}</button>
+    <select class="condition-add" data-condition-for="${id}" aria-label="${escapeHtml(t("Adicionar condição a {name}", { name: combatant.name }))}"><option value="">+ ${t("Condição")}</option>${options}</select>
   </div>`;
 }
 
@@ -2013,7 +1994,7 @@ function restoreInitiative(snapshot) {
   state.currentCombatantId = snapshot.currentCombatantId;
   persistCombatants();
   renderInitiative();
-  showToast("Alteração desfeita.");
+  showToast(t("Alteração desfeita."));
 }
 
 // Atualiza os PV e mantém as condições coerentes: PJ a 0 PV fica inconsciente e perde a concentração.
@@ -2034,11 +2015,11 @@ function applyQuickHp(combatantId, rawValue, mode = null) {
   const combatant = state.combatants.find((item) => item.id === combatantId);
   const match = String(rawValue).trim().match(/^([+\-−–]?)\s*(\d{1,4})$/);
   if (!combatant || !match) {
-    showToast("Use um número, por exemplo 8 e depois Dano ou Cura (ou −8 / +5).");
+    showToast(t("Use um número, por exemplo 8 e depois Dano ou Cura (ou −8 / +5)."));
     return;
   }
   if (combatant.hp === "" || combatant.hp == null) {
-    showToast("Informe os PV atuais deste combatente antes de aplicar dano ou cura.");
+    showToast(t("Informe os PV atuais deste combatente antes de aplicar dano ou cura."));
     return;
   }
   const amount = Number(match[2]);
@@ -2049,7 +2030,7 @@ function applyQuickHp(combatantId, rawValue, mode = null) {
     setCombatantHp(combatant, next);
     persistCombatants();
     renderInitiative();
-    showToast(`${combatant.name}: +${amount} → ${next} PV.`);
+    showToast(t("{name}: +{amount} → {hp} PV.", { name: combatant.name, amount, hp: next }));
     return;
   }
   const tempHp = Number(combatant.tempHp) || 0;
@@ -2059,11 +2040,11 @@ function applyQuickHp(combatantId, rawValue, mode = null) {
   const wasConcentrating = setCombatantHp(combatant, next);
   persistCombatants();
   renderInitiative();
-  const parts = [`${combatant.name}: −${amount} → ${next} PV`];
-  if (absorbed) parts.push(`${absorbed} absorvido(s) pelos PV temporários`);
-  if (next === 0) parts.push(combatant.isPlayer ? "caído e inconsciente" : "abatido");
-  if (wasConcentrating && next === 0) parts.push("concentração perdida");
-  else if (wasConcentrating && amount > 0) parts.push(`teste de concentração: CON CD ${Math.max(10, Math.floor(amount / 2))}`);
+  const parts = [t("{name}: −{amount} → {hp} PV", { name: combatant.name, amount, hp: next })];
+  if (absorbed) parts.push(t("{count} absorvido(s) pelos PV temporários", { count: absorbed }));
+  if (next === 0) parts.push(combatant.isPlayer ? t("caído e inconsciente") : t("abatido"));
+  if (wasConcentrating && next === 0) parts.push(t("concentração perdida"));
+  else if (wasConcentrating && amount > 0) parts.push(t("teste de concentração: CON CD {dc}", { dc: Math.max(10, Math.floor(amount / 2)) }));
   showToast(`${parts.join(" · ")}.`);
 }
 
@@ -2091,13 +2072,13 @@ function duplicateCombatant(combatantId) {
   });
   persistCombatants();
   renderInitiative();
-  showToast(`${base} duplicado${modifier === null ? "" : " com nova rolagem de iniciativa"}.`);
+  showToast(t(modifier === null ? "{name} duplicado." : "{name} duplicado com nova rolagem de iniciativa.", { name: base }));
 }
 
 function rollAllMonsterInitiative() {
   const monsters = state.combatants.filter((item) => !item.isPlayer && getDexterityModifier(item.monster) !== null);
   if (!monsters.length) {
-    showToast("Nenhum combatente com ficha de criatura para rolar.");
+    showToast(t("Nenhum combatente com ficha de criatura para rolar."));
     return;
   }
   monsters.forEach((item) => {
@@ -2106,7 +2087,7 @@ function rollAllMonsterInitiative() {
   state.currentCombatantId = getTurnOrder()[0].id;
   persistCombatants();
   renderInitiative();
-  showToast(`Iniciativa rolada para ${monsters.length} ${monsters.length === 1 ? "criatura" : "criaturas"}.`);
+  showToast(t(monsters.length === 1 ? "Iniciativa rolada para {count} criatura." : "Iniciativa rolada para {count} criaturas.", { count: monsters.length }));
 }
 
 function toggleCondition(combatantId, key, enable) {
@@ -2122,7 +2103,7 @@ function toggleCondition(combatantId, key, enable) {
 function stepTurn(direction) {
   const order = getTurnOrder();
   if (!order.length) {
-    showToast("Adicione combatentes antes de avançar o turno.");
+    showToast(t("Adicione combatentes antes de avançar o turno."));
     return;
   }
   const isSkippable = (combatant) => !combatant.isPlayer && combatant.hp === "0";
@@ -2140,7 +2121,7 @@ function stepTurn(direction) {
     } else {
       if (index === 0) {
         if (round === 1) {
-          showToast("Este já é o primeiro turno do combate.");
+          showToast(t("Este já é o primeiro turno do combate."));
           return;
         }
         index = order.length;
@@ -2170,7 +2151,7 @@ function removeCombatant(combatantId) {
   state.combatants = state.combatants.filter((item) => item.id !== combatantId);
   persistCombatants();
   renderInitiative();
-  showToast(`${combatant.name} removido.`, { label: "Desfazer", onClick: () => restoreInitiative(snapshot) });
+  showToast(t("{name} removido.", { name: combatant.name }), { label: t("Desfazer"), onClick: () => restoreInitiative(snapshot) });
 }
 
 function endCombat() {
@@ -2178,8 +2159,8 @@ function endCombat() {
   const players = state.combatants.filter((item) => item.isPlayer);
   const removed = state.combatants.length - players.length;
   const message = players.length
-    ? `Encerrar o combate? ${removed} criatura(s) serão removidas e ${players.length} PJ(s) mantidos.`
-    : "Encerrar o combate? Todos os combatentes serão removidos (nenhum está marcado como PJ).";
+    ? t("Encerrar o combate? {removed} criatura(s) serão removidas e {players} PJ(s) mantidos.", { removed, players: players.length })
+    : t("Encerrar o combate? Todos os combatentes serão removidos (nenhum está marcado como PJ).");
   if (!window.confirm(message)) return;
   const snapshot = snapshotInitiative();
   state.combatants = players.map((item) => ({
@@ -2191,7 +2172,7 @@ function endCombat() {
   state.currentCombatantId = getTurnOrder()[0]?.id || null;
   persistCombatants();
   renderInitiative();
-  showToast("Combate encerrado.", { label: "Desfazer", onClick: () => restoreInitiative(snapshot) });
+  showToast(t("Combate encerrado."), { label: t("Desfazer"), onClick: () => restoreInitiative(snapshot) });
 }
 
 function campaignOptions(selected, extra = []) {
@@ -2210,11 +2191,11 @@ function getVisibleNotes() {
 function renderNotes() {
   const knownCampaigns = new Set(state.campaigns.map((campaign) => campaign.id));
   if (!["all", "none"].includes(state.notesFilter) && !knownCampaigns.has(state.notesFilter)) state.notesFilter = "all";
-  document.querySelector("#notes-campaign-filter").innerHTML = campaignOptions(state.notesFilter, [["all", "Todas as anotações"], ["none", "Sem campanha"]]);
+  document.querySelector("#notes-campaign-filter").innerHTML = campaignOptions(state.notesFilter, [["all", t("Todas as anotações")], ["none", t("Sem campanha")]]);
   const visible = getVisibleNotes();
   document.querySelector("#notes-list").innerHTML = visible.map((note) => {
     const campaign = state.campaigns.find((item) => item.id === note.campaignId);
-    return `<button class="note-item ${note.id === state.activeNoteId ? "is-active" : ""}" type="button" data-note-id="${escapeHtml(note.id)}"><strong>${escapeHtml(note.title || "Sem título")}</strong><small>${escapeHtml(campaign?.name || "Sem campanha")}</small></button>`;
+    return `<button class="note-item ${note.id === state.activeNoteId ? "is-active" : ""}" type="button" data-note-id="${escapeHtml(note.id)}"><strong>${escapeHtml(note.title || t("Sem título"))}</strong><small>${escapeHtml(campaign?.name || t("Sem campanha"))}</small></button>`;
   }).join("");
   document.querySelector("#notes-empty").hidden = visible.length > 0;
   renderNoteEditor();
@@ -2225,14 +2206,14 @@ function renderNoteEditor() {
   const defaultCampaign = !["all", "none"].includes(state.notesFilter) ? state.notesFilter : "";
   document.querySelector("#notes-title").value = note?.title || "";
   document.querySelector("#notes-content").value = note?.content || "";
-  document.querySelector("#notes-campaign").innerHTML = campaignOptions(note ? note.campaignId : defaultCampaign, [["", "Sem campanha"]]);
+  document.querySelector("#notes-campaign").innerHTML = campaignOptions(note ? note.campaignId : defaultCampaign, [["", t("Sem campanha")]]);
   document.querySelector("#delete-note").hidden = !note;
-  document.querySelector("#notes-status").textContent = note ? "Salvo neste navegador" : "Nova anotação";
+  document.querySelector("#notes-status").textContent = note ? t("Salvo neste navegador") : t("Nova anotação");
   state.notesDirty = false;
 }
 
 function selectNote(noteId) {
-  if (state.notesDirty && !window.confirm("Descartar as alterações não salvas desta anotação?")) return;
+  if (state.notesDirty && !window.confirm(t("Descartar as alterações não salvas desta anotação?"))) return;
   state.activeNoteId = noteId;
   renderNotes();
 }
@@ -2241,7 +2222,7 @@ function saveCurrentNote() {
   const title = document.querySelector("#notes-title").value.trim();
   const content = document.querySelector("#notes-content").value;
   if (!title && !content.trim()) {
-    showToast("Escreva um título ou algum texto antes de salvar.");
+    showToast(t("Escreva um título ou algum texto antes de salvar."));
     return;
   }
   const campaignId = document.querySelector("#notes-campaign").value;
@@ -2256,7 +2237,7 @@ function saveCurrentNote() {
   if (saveStored("cronica-notes", state.notes)) {
     state.notesDirty = false;
     renderNotes();
-    showToast("Anotação salva.");
+    showToast(t("Anotação salva."));
   } else {
     state.notes = previous;
   }
@@ -2264,12 +2245,12 @@ function saveCurrentNote() {
 
 function deleteCurrentNote() {
   const note = state.notes.find((item) => item.id === state.activeNoteId);
-  if (!note || !window.confirm(`Excluir a anotação “${note.title || "Sem título"}”?`)) return;
+  if (!note || !window.confirm(t("Excluir a anotação “{title}”?", { title: note.title || t("Sem título") }))) return;
   state.notes = state.notes.filter((item) => item.id !== note.id);
   saveStored("cronica-notes", state.notes);
   state.activeNoteId = null;
   renderNotes();
-  showToast("Anotação excluída.");
+  showToast(t("Anotação excluída."));
 }
 
 const CREATURE_TEMPLATE = [{
@@ -2355,7 +2336,7 @@ function downloadJson(filename, data) {
 }
 
 async function readJsonFile(file, maxBytes = 5 * 1024 * 1024) {
-  if (file.size > maxBytes) throw new Error("O arquivo é grande demais (limite de 5 MB).");
+  if (file.size > maxBytes) throw new Error(t("O arquivo é grande demais (limite de 5 MB)."));
   return JSON.parse(await file.text());
 }
 
@@ -2366,7 +2347,7 @@ async function importCustomCreatures(file) {
     if (!Array.isArray(list)) throw new Error("Esperava uma lista de criaturas.");
     const valid = list.map(normalizeCustomCreature).filter(Boolean);
     if (!valid.length) {
-      showToast("Nenhuma criatura válida no arquivo. Baixe o modelo para ver o formato.");
+      showToast(t("Nenhuma criatura válida no arquivo. Baixe o modelo para ver o formato."));
       return;
     }
     const merged = new Map(state.customCreatures.map((creature) => [creature.slug, creature]));
@@ -2378,11 +2359,11 @@ async function importCustomCreatures(file) {
       return;
     }
     const skipped = list.length - valid.length;
-    showToast(`${valid.length} ${valid.length === 1 ? "criatura importada" : "criaturas importadas"}${skipped ? `; ${skipped} ignorada(s) por dados inválidos` : ""}.`);
+    showToast(`${t(valid.length === 1 ? "{count} criatura importada" : "{count} criaturas importadas", { count: valid.length })}${skipped ? t("; {count} ignorada(s) por dados inválidos", { count: skipped }) : ""}.`);
     if (state.monsters.provider === "custom") loadMonsters();
   } catch (error) {
     console.error("Falha ao importar criaturas.", error);
-    showToast("Não foi possível ler o arquivo. Confira se é um JSON válido.");
+    showToast(t("Não foi possível ler o arquivo. Confira se é um JSON válido."));
   }
 }
 
@@ -2411,7 +2392,7 @@ function exportAllData() {
       customCreatures: state.customCreatures,
     },
   });
-  document.querySelector("#backup-status").textContent = "Arquivo gerado. Guarde-o em um lugar seguro.";
+  document.querySelector("#backup-status").textContent = t("Arquivo gerado. Guarde-o em um lugar seguro.");
 }
 
 async function importAllData(file) {
@@ -2448,8 +2429,13 @@ async function importAllData(file) {
       .filter((item) => item && typeof item.id === "string")
       .map((item) => ({ id: text(item.id, 80), title: text(item.title, 100), content: text(item.content, 100000), campaignId: text(item.campaignId, 80), updatedAt: Number(item.updatedAt) || Date.now() }));
     const customCreatures = (Array.isArray(data.customCreatures) ? data.customCreatures : []).map(normalizeCustomCreature).filter(Boolean);
-    const summary = `${campaigns.length} campanha(s), ${combatants.length} combatente(s), ${notes.length} anotação(ões), ${customCreatures.length} criatura(s)`;
-    if (!window.confirm(`Substituir os dados deste navegador por: ${summary}?`)) return;
+    const summary = t("{campaigns} campanha(s), {combatants} combatente(s), {notes} anotação(ões), {creatures} criatura(s)", {
+      campaigns: campaigns.length,
+      combatants: combatants.length,
+      notes: notes.length,
+      creatures: customCreatures.length,
+    });
+    if (!window.confirm(t("Substituir os dados deste navegador por: {summary}?", { summary }))) return;
     saveStoredOrThrow(BACKUP_KEYS.campaigns, campaigns);
     saveStoredOrThrow(BACKUP_KEYS.combatants, combatants);
     saveStoredOrThrow(BACKUP_KEYS.notes, notes);
@@ -2461,11 +2447,11 @@ async function importAllData(file) {
       if (typeof value === "string" && list.some((item) => item.id === value)) localStorage.setItem(BACKUP_KEYS[field], value);
       else localStorage.removeItem(BACKUP_KEYS[field]);
     });
-    status.textContent = "Dados importados. Recarregando...";
+    status.textContent = t("Dados importados. Recarregando...");
     window.setTimeout(() => window.location.reload(), 600);
   } catch (error) {
     console.error("Falha ao importar o backup.", error);
-    status.textContent = "Não foi possível importar: confira se o arquivo é um backup do BanD&D.";
+    status.textContent = t("Não foi possível importar: confira se o arquivo é um backup do BanD&D.");
   }
 }
 
@@ -2481,8 +2467,8 @@ function renderCampaigns() {
   state.campaigns.forEach((campaign) => {
     insertBefore.insertAdjacentHTML("beforebegin", `
       <article class="campaign-card" data-custom-campaign="${escapeHtml(campaign.id)}">
-        <div class="campaign-cover campaign-cover-${escapeHtml(["mountains", "forest", "ruins", "night"].includes(campaign.background) ? campaign.background : "mountains")}" data-campaign-cover="${escapeHtml(campaign.id)}"><span aria-hidden="true">${icon("d20")}</span><small>CAMPANHA</small></div>
-        <div class="campaign-card-body"><div class="campaign-title-row"><div><h2>${escapeHtml(campaign.name)}</h2><p>${escapeHtml(campaign.description || "Uma nova história começa a ser escrita.")}</p></div><button class="icon-button campaign-edit-icon" type="button" data-edit-campaign="${escapeHtml(campaign.id)}" aria-label="Editar ${escapeHtml(campaign.name)}">${icon("more")}</button></div><div class="campaign-card-meta"><span>${icon("clock")} Campanha pronta para jogar</span></div><button class="button button-outline campaign-open" type="button" data-open-campaign="${escapeHtml(campaign.id)}">Abrir campanha ${icon("arrow-right")}</button></div>
+        <div class="campaign-cover campaign-cover-${escapeHtml(["mountains", "forest", "ruins", "night"].includes(campaign.background) ? campaign.background : "mountains")}" data-campaign-cover="${escapeHtml(campaign.id)}"><span aria-hidden="true">${icon("d20")}</span><small>${t("CAMPANHA")}</small></div>
+        <div class="campaign-card-body"><div class="campaign-title-row"><div><h2>${escapeHtml(campaign.name)}</h2><p>${escapeHtml(campaign.description || t("Uma nova história começa a ser escrita."))}</p></div><button class="icon-button campaign-edit-icon" type="button" data-edit-campaign="${escapeHtml(campaign.id)}" aria-label="${escapeHtml(t("Editar {name}", { name: campaign.name }))}">${icon("more")}</button></div><div class="campaign-card-meta"><span>${icon("clock")} ${t("Campanha pronta para jogar")}</span></div><button class="button button-outline campaign-open" type="button" data-open-campaign="${escapeHtml(campaign.id)}">${t("Abrir campanha")} ${icon("arrow-right")}</button></div>
       </article>`);
     const cover = container.querySelector(`[data-campaign-cover="${CSS.escape(campaign.id)}"]`);
     const imageUrl = getSafeExternalUrl(campaign.imageUrl);
@@ -2499,22 +2485,22 @@ function getActiveCampaign() {
 
 function renderDashboardCampaign() {
   const campaign = getActiveCampaign();
-  const name = campaign?.name || "Nenhuma campanha aberta";
+  const name = campaign?.name || t("Nenhuma campanha aberta");
   const description = campaign?.description || (campaign
-    ? "Uma nova história começa a ser escrita."
-    : "Abra ou crie uma campanha para acompanhar seus detalhes aqui.");
+    ? t("Uma nova história começa a ser escrita.")
+    : t("Abra ou crie uma campanha para acompanhar seus detalhes aqui."));
   const banner = document.querySelector("#dashboard-campaign-banner");
   const imageUrl = campaign?.background === "custom" ? getSafeExternalUrl(campaign.imageUrl) : "";
 
   document.querySelector("#dashboard-campaign-name").textContent = name;
   document.querySelector("#dashboard-campaign-description").textContent = description;
   document.querySelector("#dashboard-campaign-meta").innerHTML = campaign
-    ? `<span>${icon("clock")} Campanha ativa</span>`
-    : `<span>${icon("plus")} Crie sua primeira campanha</span>`;
+    ? `<span>${icon("clock")} ${t("Campanha ativa")}</span>`
+    : `<span>${icon("plus")} ${t("Crie sua primeira campanha")}</span>`;
   document.querySelector("#dashboard-activity-name").textContent = name;
   document.querySelector("#dashboard-activity-description").textContent = campaign
-    ? "Última campanha aberta"
-    : "Escolha uma campanha para continuar.";
+    ? t("Última campanha aberta")
+    : t("Escolha uma campanha para continuar.");
   document.querySelector("#dashboard-open-campaign").disabled = !campaign;
   document.querySelectorAll("[data-open-active-campaign]").forEach((button) => {
     button.disabled = !campaign;
@@ -2522,7 +2508,7 @@ function renderDashboardCampaign() {
 
   banner.dataset.background = imageUrl ? "custom" : campaign?.background || "mountains";
   banner.style.backgroundImage = imageUrl
-    ? `linear-gradient(100deg, #151519e8 0%, #17171bd9 55%, #17191ecc 100%), url("${imageUrl}")`
+    ? `var(--banner-image-overlay), url("${imageUrl}")`
     : "";
   document.querySelector("#dashboard-banner-art").hidden = Boolean(imageUrl);
 }
@@ -2533,11 +2519,11 @@ function renderDashboardCombat() {
   const players = order.filter((combatant) => combatant.isPlayer).length;
   document.querySelector("#dashboard-round").textContent = order.length ? String(state.round) : "—";
   document.querySelector("#dashboard-combat-title").textContent = current
-    ? `Vez de ${current.name}`
-    : "Nenhum combate em andamento";
+    ? t("Vez de {name}", { name: current.name })
+    : t("Nenhum combate em andamento");
   document.querySelector("#dashboard-combat-detail").textContent = order.length
-    ? `${order.length} combatente(s) · ${players} PJ(s) · ${order.length - players} criatura(s)`
-    : "Adicione combatentes na iniciativa para começar.";
+    ? t("{total} combatente(s) · {players} PJ(s) · {creatures} criatura(s)", { total: order.length, players, creatures: order.length - players })
+    : t("Adicione combatentes na iniciativa para começar.");
 }
 
 function setActiveCampaign(campaign) {
@@ -2547,7 +2533,7 @@ function setActiveCampaign(campaign) {
     else localStorage.removeItem("cronica-active-campaign");
   } catch (error) {
     console.error("Não foi possível salvar a campanha ativa.", error);
-    showToast("A campanha foi aberta, mas não foi possível salvar sua seleção neste navegador.");
+    showToast(t("A campanha foi aberta, mas não foi possível salvar sua seleção neste navegador."));
   }
   renderDashboardCampaign();
 }
@@ -2555,7 +2541,7 @@ function setActiveCampaign(campaign) {
 function openCampaign(campaign) {
   setActiveCampaign(campaign);
   navigate("initiative");
-  showToast(`Campanha “${campaign.name}” aberta. A iniciativa está pronta para a sessão.`);
+  showToast(t("Campanha “{name}” aberta. A iniciativa está pronta para a sessão.", { name: campaign.name }));
 }
 
 function openCampaignEditor(campaign = null) {
@@ -2563,7 +2549,7 @@ function openCampaignEditor(campaign = null) {
   const form = document.querySelector("#campaign-editor-form");
   form.reset();
   state.editingCampaignId = campaign?.id || null;
-  document.querySelector("#campaign-editor-title").textContent = campaign ? "Editar campanha" : "Nova campanha";
+  document.querySelector("#campaign-editor-title").textContent = campaign ? t("Editar campanha") : t("Nova campanha");
   document.querySelector("#campaign-name").value = campaign?.name || "";
   document.querySelector("#campaign-description").value = campaign?.description || "";
   document.querySelector("#campaign-background").value = campaign?.background || "mountains";
@@ -2579,7 +2565,40 @@ function updateCampaignImageField() {
   document.querySelector("#campaign-image-url").required = custom;
 }
 
+function updateThemeToggle() {
+  const isLight = document.documentElement.dataset.theme === "light";
+  const button = document.querySelector("#theme-toggle");
+  const label = isLight ? t("Usar tema escuro") : t("Usar tema claro");
+  button.innerHTML = icon(isLight ? "moon" : "sun");
+  button.setAttribute("aria-label", label);
+  button.title = label;
+  document.querySelector('meta[name="theme-color"]').content = isLight ? "#e6d9c2" : "#101116";
+}
+
+function setTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  try {
+    localStorage.setItem("bandd-theme", theme);
+  } catch (error) {
+    console.error("Não foi possível salvar o tema escolhido.", error);
+  }
+  updateThemeToggle();
+}
+
 function setupEvents() {
+  const languageSelect = document.querySelector("#language-select");
+  languageSelect.value = LANG;
+  languageSelect.addEventListener("change", () => {
+    if (state.notesDirty && !window.confirm(t("Descartar as alterações não salvas desta anotação?"))) {
+      languageSelect.value = LANG;
+      return;
+    }
+    setLanguage(languageSelect.value);
+  });
+  document.querySelector("#theme-toggle").addEventListener("click", () => {
+    setTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light");
+  });
+  updateThemeToggle();
   document.querySelectorAll("[data-view], [data-go]").forEach((element) => {
     element.addEventListener("click", (event) => {
       if (element instanceof HTMLAnchorElement) event.preventDefault();
@@ -2748,13 +2767,13 @@ function setupEvents() {
   document.querySelector("#spell-more").addEventListener("click", () => {
     state.spells.visibleCount += PAGE_SIZE;
     renderSpells();
-    document.querySelector("#spell-count").textContent = `${Math.min(state.spells.visibleCount, state.spells.results.length)} de ${state.spells.results.length} magias`;
+    document.querySelector("#spell-count").textContent = formatCount(Math.min(state.spells.visibleCount, state.spells.results.length), state.spells.results.length, t("magia"), t("magias"));
     document.querySelector("#spell-more").hidden = state.spells.results.length <= state.spells.visibleCount;
   });
   document.querySelector("#trick-more").addEventListener("click", () => {
     state.tricks.visibleCount += PAGE_SIZE;
     renderTricks();
-    document.querySelector("#trick-count").textContent = `${Math.min(state.tricks.visibleCount, state.tricks.results.length)} de ${state.tricks.results.length} truques`;
+    document.querySelector("#trick-count").textContent = formatCount(Math.min(state.tricks.visibleCount, state.tricks.results.length), state.tricks.results.length, t("truque"), t("truques"));
     document.querySelector("#trick-more").hidden = state.tricks.results.length <= state.tricks.visibleCount;
   });
   document.querySelector("#monster-more").addEventListener("click", () => {
@@ -2765,7 +2784,7 @@ function setupEvents() {
     state.monsters.visibleCount += PAGE_SIZE;
     renderMonsters();
     loadVisibleMonsterImages(++state.monsters.requestId);
-    document.querySelector("#monster-count").textContent = `${Math.min(state.monsters.visibleCount, state.monsters.results.length)} de ${state.monsters.results.length} criaturas`;
+    document.querySelector("#monster-count").textContent = formatCount(Math.min(state.monsters.visibleCount, state.monsters.results.length), state.monsters.results.length, t("criatura"), t("criaturas"));
     document.querySelector("#monster-more").hidden = state.monsters.results.length <= state.monsters.visibleCount;
   });
   document.querySelector("#spell-list").addEventListener("click", (event) => {
@@ -2783,12 +2802,12 @@ function setupEvents() {
   document.addEventListener("click", (event) => {
     const previewButton = event.target.closest("[data-image-preview]");
     if (!previewButton || previewButton.hidden) return;
-    showMonsterImage(previewButton.dataset.imageUrl, previewButton.dataset.imageAlt || "Imagem da criatura");
+    showMonsterImage(previewButton.dataset.imageUrl, previewButton.dataset.imageAlt || t("Imagem da criatura"));
   });
   document.querySelector(".dialog-close").addEventListener("click", () => document.querySelector("#detail-dialog").close());
   document.querySelector("#monster-image-close").addEventListener("click", () => document.querySelector("#monster-image-dialog").close());
   document.querySelector("#monster-image-preview").addEventListener("error", () => {
-    document.querySelector("#monster-image-status").textContent = "A API informou uma imagem, mas ela não pôde ser carregada.";
+    document.querySelector("#monster-image-status").textContent = t("A API informou uma imagem, mas ela não pôde ser carregada.");
   });
   document.querySelector("#monster-image-dialog").addEventListener("click", (event) => {
     if (event.target === event.currentTarget) event.currentTarget.close();
@@ -2804,7 +2823,7 @@ function setupEvents() {
     const quantity = Math.min(20, Math.max(1, Math.floor(Number(formData.get("quantity")) || 1)));
     if (!name) return;
     if (rawScore === "" && modifier === null) {
-      showToast("Informe a iniciativa ou use o botão do d20 para rolar.");
+      showToast(t("Informe a iniciativa ou use o botão do d20 para rolar."));
       document.querySelector("#combatant-score").focus();
       return;
     }
@@ -2830,13 +2849,18 @@ function setupEvents() {
     state.combatants.push(...added);
     if (!state.currentCombatantId) state.currentCombatantId = getTurnOrder()[0].id;
     if (persistCombatants()) {
-      if (rawScore === "") showToast(`${quantity > 1 ? `${quantity} combatentes adicionados` : `${name} adicionado`} com iniciativa rolada (d20 ${modifier >= 0 ? "+" : "−"} ${Math.abs(modifier)}).`);
+      if (rawScore === "") {
+        const roll = `d20 ${modifier >= 0 ? "+" : "−"} ${Math.abs(modifier)}`;
+        showToast(quantity > 1
+          ? t("{count} combatentes adicionados com iniciativa rolada ({roll}).", { count: quantity, roll })
+          : t("{name} adicionado com iniciativa rolada ({roll}).", { name, roll }));
+      }
       form.reset();
       setMonsterImageButton(document.querySelector("#selected-creature-image"), "", "");
       state.initiative.selectedMonster = null;
       state.initiative.creatures = [];
       renderCreatureSuggestions([]);
-      document.querySelector("#creature-search-status").textContent = "Digite para buscar criaturas do SRD 2014 e Open5e.";
+      document.querySelector("#creature-search-status").textContent = t("Digite para buscar criaturas do SRD 2014 e Open5e.");
       renderInitiative();
       document.querySelector("#combatant-name").focus();
     }
@@ -2849,11 +2873,11 @@ function setupEvents() {
     const roll = rollD20();
     document.querySelector("#combatant-score").value = String(roll + modifier);
     if (hasDexterity) {
-      showToast(`Iniciativa: ${roll} no d20 ${modifier >= 0 ? "+" : "−"} ${Math.abs(modifier)} de Destreza.`);
+      showToast(t("Iniciativa: {roll} no d20 {sign} {modifier} de Destreza.", { roll, sign: modifier >= 0 ? "+" : "−", modifier: Math.abs(modifier) }));
     } else if (state.initiative.selectedMonster) {
-      showToast(`Iniciativa: ${roll} no d20. A ficha não informou Destreza para aplicar o modificador.`);
+      showToast(t("Iniciativa: {roll} no d20. A ficha não informou Destreza para aplicar o modificador.", { roll }));
     } else {
-      showToast("Iniciativa rolada sem modificador. Selecione uma criatura para somar a Destreza.");
+      showToast(t("Iniciativa rolada sem modificador. Selecione uma criatura para somar a Destreza."));
     }
   });
   document.querySelector("#next-turn").addEventListener("click", () => stepTurn(1));
@@ -2864,7 +2888,7 @@ function setupEvents() {
     state.currentCombatantId = getTurnOrder()[0]?.id || null;
     persistCombatants();
     renderInitiative();
-    showToast("Rodada reiniciada.");
+    showToast(t("Rodada reiniciada."));
   });
   document.addEventListener("keydown", (event) => {
     if (document.querySelector("#view-initiative").hidden || event.ctrlKey || event.metaKey || event.altKey) return;
@@ -2895,14 +2919,14 @@ function setupEvents() {
   document.querySelector("#initiative-rule-search").addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
-      document.querySelector("#initiative-rule-results [data-rule-title]")?.click();
+      document.querySelector("#initiative-rule-results [data-rule-key]")?.click();
     } else if (event.key === "Escape") {
       rulesLookup.open = false;
     }
   });
   document.querySelector("#initiative-rule-results").addEventListener("click", (event) => {
-    const button = event.target.closest("[data-rule-title]");
-    const rule = button && quickRules.find((item) => item.title === button.dataset.ruleTitle);
+    const button = event.target.closest("[data-rule-key]");
+    const rule = button && quickRules.find((item) => item.key === button.dataset.ruleKey);
     if (rule) showRuleDetails(rule);
   });
   document.querySelector("#save-note").addEventListener("click", saveCurrentNote);
@@ -2913,7 +2937,7 @@ function setupEvents() {
     if (item && item.dataset.noteId !== state.activeNoteId) selectNote(item.dataset.noteId);
   });
   document.querySelector("#notes-campaign-filter").addEventListener("change", (event) => {
-    if (state.notesDirty && !window.confirm("Descartar as alterações não salvas desta anotação?")) {
+    if (state.notesDirty && !window.confirm(t("Descartar as alterações não salvas desta anotação?"))) {
       event.target.value = state.notesFilter;
       return;
     }
@@ -2924,7 +2948,7 @@ function setupEvents() {
   document.querySelectorAll("#notes-title, #notes-content, #notes-campaign").forEach((field) => {
     field.addEventListener("input", () => {
       state.notesDirty = true;
-      document.querySelector("#notes-status").textContent = "Alterações não salvas";
+      document.querySelector("#notes-status").textContent = t("Alterações não salvas");
     });
   });
   document.querySelector("#export-data").addEventListener("click", exportAllData);
@@ -2940,13 +2964,13 @@ function setupEvents() {
     event.target.value = "";
     if (file) importCustomCreatures(file);
   });
-  document.querySelector("#download-creature-template").addEventListener("click", () => downloadJson("modelo-criaturas.json", CREATURE_TEMPLATE));
+  document.querySelector("#download-creature-template").addEventListener("click", () => downloadJson(t("modelo-criaturas.json"), CREATURE_TEMPLATE));
   document.querySelector("#clear-creatures").addEventListener("click", () => {
-    if (!state.customCreatures.length || !window.confirm("Remover todas as criaturas importadas deste navegador?")) return;
+    if (!state.customCreatures.length || !window.confirm(t("Remover todas as criaturas importadas deste navegador?"))) return;
     state.customCreatures = [];
     saveStored("cronica-custom-creatures", state.customCreatures);
     if (state.monsters.provider === "custom") loadMonsters();
-    showToast("Criaturas importadas removidas.");
+    showToast(t("Criaturas importadas removidas."));
   });
   document.querySelector("#roll-all-initiative").addEventListener("click", (event) => {
     spinDice(event.currentTarget);
@@ -2985,7 +3009,7 @@ function setupEvents() {
       const hp = Number(hpInput.value);
       if (!combatant || hpInput.value === "" || !Number.isInteger(hp) || hp < 0 || hp > (combatant.maxHp || 9999)) {
         hpInput.value = combatant?.hp ?? "";
-        showToast("Informe pontos de vida dentro do limite permitido.");
+        showToast(t("Informe pontos de vida dentro do limite permitido."));
         return;
       }
       setCombatantHp(combatant, hp);
@@ -2998,7 +3022,7 @@ function setupEvents() {
       const score = Number(scoreInput.value);
       if (!combatant || scoreInput.value === "" || !Number.isFinite(score) || score < -10 || score > 99) {
         scoreInput.value = combatant?.score ?? "";
-        showToast("Informe uma iniciativa entre −10 e 99.");
+        showToast(t("Informe uma iniciativa entre −10 e 99."));
         return;
       }
       combatant.score = score;
@@ -3037,7 +3061,7 @@ function setupEvents() {
     const rawImageUrl = String(formData.get("imageUrl") || "").trim();
     const imageUrl = background === "custom" ? getSafeExternalUrl(rawImageUrl) : "";
     if (background === "custom" && (!imageUrl || new URL(imageUrl).protocol !== "https:")) {
-      showToast("Informe uma URL de imagem HTTPS válida.");
+      showToast(t("Informe uma URL de imagem HTTPS válida."));
       return;
     }
     const campaignData = {
@@ -3052,12 +3076,12 @@ function setupEvents() {
     if (saveStored("cronica-campaigns", state.campaigns)) {
       renderCampaigns();
       document.querySelector("#campaign-editor").close();
-      showToast(existingIndex >= 0 ? "Campanha atualizada." : `Campanha “${name}” criada.`);
+      showToast(existingIndex >= 0 ? t("Campanha atualizada.") : t("Campanha “{name}” criada.", { name }));
     }
   });
   document.querySelector("#delete-editing-campaign").addEventListener("click", () => {
     const campaign = state.campaigns.find((item) => item.id === state.editingCampaignId);
-    if (!campaign || !window.confirm(`Excluir a campanha “${campaign.name}”?`)) return;
+    if (!campaign || !window.confirm(t("Excluir a campanha “{name}”?", { name: campaign.name }))) return;
     const wasActive = state.activeCampaignId === campaign.id;
     state.campaigns = state.campaigns.filter((item) => item.id !== campaign.id);
     if (saveStored("cronica-campaigns", state.campaigns)) {
@@ -3068,7 +3092,7 @@ function setupEvents() {
       if (wasActive) setActiveCampaign(state.campaigns[0] || null);
       renderCampaigns();
       document.querySelector("#campaign-editor").close();
-      showToast("Campanha excluída.");
+      showToast(t("Campanha excluída."));
     }
   });
   document.querySelector("#campaign-list").addEventListener("click", (event) => {
@@ -3086,9 +3110,10 @@ function setupEvents() {
   });
 }
 
+translateStaticPage();
 document.querySelector("#today-label").textContent = new Date()
-  .toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })
-  .toLocaleUpperCase("pt-BR");
+  .toLocaleDateString(LOCALE, { weekday: "long", day: "numeric", month: "long" })
+  .toLocaleUpperCase(LOCALE);
 setupEvents();
 renderInitiative();
 renderCampaigns();
