@@ -1,0 +1,14 @@
+{
+  "name": "band-d-hub",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BanD&D — Hub do Mestre: site e servidor de contas e campanhas compartilhadas.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node server/server.js",
+    "test": "node --test \"server/**/*.test.js\""
+  }
+}

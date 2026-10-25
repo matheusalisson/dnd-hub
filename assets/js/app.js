@@ -752,6 +752,7 @@ function saveStored(key, value) {
     showToast(t("Não foi possível salvar. Verifique o espaço disponível no navegador."));
     return false;
   }
+  syncLocalChange(key);
   return true;
 }
 
@@ -2175,8 +2176,9 @@ function endCombat() {
   showToast(t("Combate encerrado."), { label: t("Desfazer"), onClick: () => restoreInitiative(snapshot) });
 }
 
-function campaignOptions(selected, extra = []) {
-  return [...extra, ...state.campaigns.map((campaign) => [campaign.id, campaign.name])]
+function campaignOptions(selected, extra = [], { writableOnly = false } = {}) {
+  const campaigns = writableOnly ? state.campaigns.filter((campaign) => campaign.role !== "viewer" || campaign.id === selected) : state.campaigns;
+  return [...extra, ...campaigns.map((campaign) => [campaign.id, campaign.name])]
     .map(([value, label]) => `<option value="${escapeHtml(value)}"${value === selected ? " selected" : ""}>${escapeHtml(label)}</option>`)
     .join("");
 }
@@ -2195,7 +2197,8 @@ function renderNotes() {
   const visible = getVisibleNotes();
   document.querySelector("#notes-list").innerHTML = visible.map((note) => {
     const campaign = state.campaigns.find((item) => item.id === note.campaignId);
-    return `<button class="note-item ${note.id === state.activeNoteId ? "is-active" : ""}" type="button" data-note-id="${escapeHtml(note.id)}"><strong>${escapeHtml(note.title || t("Sem título"))}</strong><small>${escapeHtml(campaign?.name || t("Sem campanha"))}</small></button>`;
+    const author = note.authorName && note.authorName !== account.user?.name ? ` · ${note.authorName}` : "";
+    return `<button class="note-item ${note.id === state.activeNoteId ? "is-active" : ""}" type="button" data-note-id="${escapeHtml(note.id)}"><strong>${escapeHtml(note.title || t("Sem título"))}</strong><small>${escapeHtml((campaign?.name || t("Sem campanha")) + author)}</small></button>`;
   }).join("");
   document.querySelector("#notes-empty").hidden = visible.length > 0;
   renderNoteEditor();
@@ -2206,9 +2209,17 @@ function renderNoteEditor() {
   const defaultCampaign = !["all", "none"].includes(state.notesFilter) ? state.notesFilter : "";
   document.querySelector("#notes-title").value = note?.title || "";
   document.querySelector("#notes-content").value = note?.content || "";
-  document.querySelector("#notes-campaign").innerHTML = campaignOptions(note ? note.campaignId : defaultCampaign, [["", t("Sem campanha")]]);
-  document.querySelector("#delete-note").hidden = !note;
-  document.querySelector("#notes-status").textContent = note ? t("Salvo neste navegador") : t("Nova anotação");
+  const selectedCampaign = note ? note.campaignId : campaignRole(defaultCampaign) === "viewer" ? "" : defaultCampaign;
+  document.querySelector("#notes-campaign").innerHTML = campaignOptions(selectedCampaign, [["", t("Sem campanha")]], { writableOnly: true });
+  const readOnly = Boolean(note?.campaignId) && campaignRole(note.campaignId) === "viewer";
+  ["#notes-title", "#notes-content", "#notes-campaign"].forEach((selector) => { document.querySelector(selector).disabled = readOnly; });
+  document.querySelector("#save-note").hidden = readOnly;
+  document.querySelector("#delete-note").hidden = !note || readOnly;
+  document.querySelector("#notes-status").textContent = !note
+    ? t("Nova anotação")
+    : readOnly
+      ? t("Somente leitura: campanha compartilhada com você")
+      : account.user ? t("Salvo na sua conta") : t("Salvo neste navegador");
   state.notesDirty = false;
 }
 
@@ -2383,12 +2394,12 @@ function exportAllData() {
     version: 1,
     exportedAt: new Date().toISOString(),
     data: {
-      campaigns: state.campaigns,
+      campaigns: state.campaigns.map(({ id, name, description, background, imageUrl }) => ({ id, name, description, background, imageUrl })),
       activeCampaignId: state.activeCampaignId,
       combatants: state.combatants,
       round: state.round,
       currentCombatantId: state.currentCombatantId,
-      notes: state.notes,
+      notes: state.notes.map(({ id, title, content, campaignId, updatedAt }) => ({ id, title, content, campaignId, updatedAt })),
       customCreatures: state.customCreatures,
     },
   });
@@ -2435,6 +2446,15 @@ async function importAllData(file) {
       notes: notes.length,
       creatures: customCreatures.length,
     });
+    if (account.user) {
+      if (!window.confirm(t("Importar para a sua conta: {summary}?", { summary }))) return;
+      const activeCampaignId = typeof data.activeCampaignId === "string" ? data.activeCampaignId : null;
+      const currentCombatantId = typeof data.currentCombatantId === "string" ? data.currentCombatantId : null;
+      await importBackupToAccount({ campaigns, combatants, notes, customCreatures, round: Math.max(1, Number(data.round) || 1), activeCampaignId, currentCombatantId });
+      await pullFromServer({ includePersonal: true });
+      status.textContent = t("Dados importados para a sua conta.");
+      return;
+    }
     if (!window.confirm(t("Substituir os dados deste navegador por: {summary}?", { summary }))) return;
     saveStoredOrThrow(BACKUP_KEYS.campaigns, campaigns);
     saveStoredOrThrow(BACKUP_KEYS.combatants, combatants);
@@ -2468,7 +2488,7 @@ function renderCampaigns() {
     insertBefore.insertAdjacentHTML("beforebegin", `
       <article class="campaign-card" data-custom-campaign="${escapeHtml(campaign.id)}">
         <div class="campaign-cover campaign-cover-${escapeHtml(["mountains", "forest", "ruins", "night"].includes(campaign.background) ? campaign.background : "mountains")}" data-campaign-cover="${escapeHtml(campaign.id)}"><span aria-hidden="true">${icon("d20")}</span><small>${t("CAMPANHA")}</small></div>
-        <div class="campaign-card-body"><div class="campaign-title-row"><div><h2>${escapeHtml(campaign.name)}</h2><p>${escapeHtml(campaign.description || t("Uma nova história começa a ser escrita."))}</p></div><button class="icon-button campaign-edit-icon" type="button" data-edit-campaign="${escapeHtml(campaign.id)}" aria-label="${escapeHtml(t("Editar {name}", { name: campaign.name }))}">${icon("more")}</button></div><div class="campaign-card-meta"><span>${icon("clock")} ${t("Campanha pronta para jogar")}</span></div><button class="button button-outline campaign-open" type="button" data-open-campaign="${escapeHtml(campaign.id)}">${t("Abrir campanha")} ${icon("arrow-right")}</button></div>
+        <div class="campaign-card-body"><div class="campaign-title-row"><div><h2>${escapeHtml(campaign.name)}</h2><p>${escapeHtml(campaign.description || t("Uma nova história começa a ser escrita."))}</p></div><div class="campaign-card-tools">${account.user ? `<button class="icon-button" type="button" data-share-campaign="${escapeHtml(campaign.id)}" aria-label="${escapeHtml(t("Membros de {name}", { name: campaign.name }))}" title="${escapeHtml(t("Membros e convites"))}">${icon("users")}</button>` : ""}${campaign.role === "viewer" ? "" : `<button class="icon-button campaign-edit-icon" type="button" data-edit-campaign="${escapeHtml(campaign.id)}" aria-label="${escapeHtml(t("Editar {name}", { name: campaign.name }))}">${icon("more")}</button>`}</div></div><div class="campaign-card-meta"><span>${icon("clock")} ${t("Campanha pronta para jogar")}</span>${campaignShareBadge(campaign)}</div><button class="button button-outline campaign-open" type="button" data-open-campaign="${escapeHtml(campaign.id)}">${t("Abrir campanha")} ${icon("arrow-right")}</button></div>
       </article>`);
     const cover = container.querySelector(`[data-campaign-cover="${CSS.escape(campaign.id)}"]`);
     const imageUrl = getSafeExternalUrl(campaign.imageUrl);
@@ -2535,6 +2555,7 @@ function setActiveCampaign(campaign) {
     console.error("Não foi possível salvar a campanha ativa.", error);
     showToast(t("A campanha foi aberta, mas não foi possível salvar sua seleção neste navegador."));
   }
+  syncLocalChange("cronica-active-campaign");
   renderDashboardCampaign();
 }
 
@@ -2554,7 +2575,8 @@ function openCampaignEditor(campaign = null) {
   document.querySelector("#campaign-description").value = campaign?.description || "";
   document.querySelector("#campaign-background").value = campaign?.background || "mountains";
   document.querySelector("#campaign-image-url").value = campaign?.imageUrl || "";
-  document.querySelector("#delete-editing-campaign").hidden = !campaign;
+  // Em campanha compartilhada, só o dono exclui.
+  document.querySelector("#delete-editing-campaign").hidden = !campaign || Boolean(campaign.role && campaign.role !== "owner");
   updateCampaignImageField();
   dialog.showModal();
 }
@@ -2626,6 +2648,7 @@ function setupEvents() {
     }
   });
   document.addEventListener("keydown", (event) => {
+    if (document.documentElement.dataset.auth !== "ok") return;
     if (event.key === "/" && !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)) {
       event.preventDefault();
       document.querySelector("#global-search").focus();
@@ -2891,7 +2914,7 @@ function setupEvents() {
     showToast(t("Rodada reiniciada."));
   });
   document.addEventListener("keydown", (event) => {
-    if (document.querySelector("#view-initiative").hidden || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (document.documentElement.dataset.auth !== "ok" || document.querySelector("#view-initiative").hidden || event.ctrlKey || event.metaKey || event.altKey) return;
     if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName) || document.querySelector("dialog[open]")) return;
     const key = event.key.toLowerCase();
     if (key === "n" || key === "arrowright") {
@@ -3102,6 +3125,12 @@ function setupEvents() {
       if (campaign) openCampaignEditor(campaign);
       return;
     }
+    const shareButton = event.target.closest("[data-share-campaign]");
+    if (shareButton) {
+      const campaign = state.campaigns.find((item) => item.id === shareButton.dataset.shareCampaign);
+      if (campaign) openShareDialog(campaign);
+      return;
+    }
     const campaignButton = event.target.closest("[data-open-campaign]");
     if (campaignButton) {
       const campaign = state.campaigns.find((item) => item.id === campaignButton.dataset.openCampaign);
@@ -3117,6 +3146,7 @@ document.querySelector("#today-label").textContent = new Date()
 setupEvents();
 renderInitiative();
 renderCampaigns();
+initAccount();
 const initialRoute = window.location.hash.slice(1);
 const initialView = initialRoute === "inicio" ? "dashboard" : initialRoute;
 navigate(initialView, { updateHistory: false, scroll: false });

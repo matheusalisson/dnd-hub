@@ -751,3 +751,62 @@ button.resource-card { cursor: pointer; }
   .resource-grid { grid-template-columns: 1fr; }
   .detail-dialog { padding: 22px; }
 }
+
+/* Conta, sincronização e campanhas compartilhadas */
+.account-button { position: relative; display: inline-flex; height: 38px; max-width: 160px; flex: 0 0 auto; align-items: center; gap: 7px; padding: 0 12px; border: 1px solid var(--gold-line); border-radius: var(--r-sm); background: var(--gold-soft); color: var(--gold-2); font-size: 13px; font-weight: 600; transition: border-color .15s, background .15s; }
+.account-button:hover { border-color: var(--gold); }
+.account-button.is-signed-in { border-color: var(--border-strong); background: var(--input); color: var(--text); }
+.account-button > span:not(.sync-dot) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-button .icon { flex: 0 0 auto; font-size: 16px; }
+.sync-dot { position: absolute; top: -3px; right: -3px; width: 9px; height: 9px; border: 2px solid var(--bg); border-radius: 50%; background: var(--amber); }
+.sync-dot.is-offline { background: var(--red); }
+.heading-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.campaign-card-tools { display: flex; align-self: flex-start; gap: 2px; margin: -6px -8px 0 0; }
+.campaign-card-tools .campaign-edit-icon { margin: 0; }
+.campaign-card-meta { flex-wrap: wrap; row-gap: 6px; }
+.share-badge { display: inline-flex; align-items: center; gap: 5px; color: var(--purple); }
+.account-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 4px 0 6px; padding: 4px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--input); }
+.account-tabs button { height: 34px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-3); font-size: 13px; font-weight: 600; }
+.account-tabs button.is-active { background: var(--surface-3); color: var(--text); }
+.form-error { min-height: 1.4em; margin: 4px 0 0; color: var(--red); font-size: 13px; }
+.form-error:empty { min-height: 0; }
+.account-email { margin: -4px 0 10px; color: var(--text-3); }
+.account-sync { display: inline-flex; margin: 0 0 8px; padding: 6px 10px; border-radius: var(--r-pill); background: var(--green-soft); color: var(--green); font-size: 12px; font-weight: 600; }
+.account-sync.is-pending { background: var(--red-soft); color: var(--amber); }
+.join-form { display: grid; gap: 8px; justify-items: start; margin-top: 8px; }
+.join-form .campaign-form-field { width: 100%; margin-bottom: 0; }
+#join-code { text-transform: uppercase; letter-spacing: .08em; }
+.share-subtitle { margin: 0 0 16px; color: var(--text-3); }
+.member-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.member-list li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2); }
+.member-avatar { display: grid; width: 30px; height: 30px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: var(--purple-soft); color: var(--purple); font-weight: 700; }
+.member-name { display: grid; min-width: 0; flex: 1; color: var(--text); font-weight: 600; }
+.member-name small { color: var(--text-3); font-weight: 400; }
+.member-email { overflow: hidden; color: var(--text-3); font-size: 12px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+.member-role { color: var(--text-3); font-size: 12px; }
+.member-list select, .invite-row select { height: 32px; padding: 0 8px; border: 1px solid var(--border-strong); border-radius: var(--r-sm); background: var(--input); color: var(--text); font-size: 13px; }
+.invite-box { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border); }
+.invite-box h3 { margin: 0 0 4px; font-size: 15px; }
+.invite-box p { margin: 0 0 12px; color: var(--text-3); font-size: 13px; }
+.invite-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.invite-row select { height: 40px; }
+.invite-code { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; padding: 8px 8px 8px 14px; border: 1px dashed var(--gold-line); border-radius: var(--r-md); background: var(--gold-soft); }
+.invite-code code { color: var(--gold-2); font-size: 20px; font-weight: 700; letter-spacing: .14em; }
+.notes-panel :is(input, textarea, select):disabled { opacity: .75; cursor: not-allowed; }
+@media (max-width: 720px) {
+  .account-button { width: 38px; padding: 0; justify-content: center; }
+  .account-button > span:not(.sync-dot) { display: none; }
+}
+
+/* Tela de login: o site só aparece com data-auth="ok" no <html> */
+html:not([data-auth="ok"]) .app-shell { display: none; }
+html[data-auth="ok"] .auth-gate { display: none; }
+.auth-gate { display: grid; min-height: 100vh; place-items: center; padding: 32px 16px; background: radial-gradient(circle at 50% 0%, var(--gold-soft), transparent 60%), var(--bg); }
+.auth-card { width: min(420px, 100%); padding: 32px; border: 1px solid var(--border-strong); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-card); }
+.auth-brand { margin: 0 0 28px; }
+.auth-card h1 { margin: 0 0 14px; font-size: 30px; }
+.auth-loading { margin: 0; color: var(--text-3); }
+.auth-offline p { color: var(--text-2); }
+.auth-offline code { padding: 1px 6px; border-radius: 4px; background: var(--surface-3); color: var(--gold-2); }
+.auth-notice { margin: -4px 0 12px; padding: 8px 12px; border-radius: var(--r-md); background: var(--red-soft); color: var(--amber); font-size: 13px; }
+@media (max-width: 720px) { .auth-card { padding: 24px 20px; } }

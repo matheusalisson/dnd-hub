@@ -10,6 +10,8 @@
     <meta name="theme-color" content="#101116" />
     <title>BanD&amp;D — Hub do Mestre</title>
     <script>
+      // Nada do site aparece antes de o login ser confirmado (veja account.js).
+      document.documentElement.dataset.auth = "pending";
       // Aplica o tema antes da primeira pintura para não piscar o tema errado.
       try {
         const savedTheme = localStorage.getItem("bandd-theme");
@@ -25,6 +27,7 @@
     <script src="./assets/js/i18n.js" defer></script>
     <script src="./assets/js/spells-pt.js" defer></script>
     <script src="./assets/js/monsters-pt.js" defer></script>
+    <script src="./assets/js/account.js" defer></script>
     <script src="./assets/js/app.js" defer></script>
   </head>
   <body>
@@ -59,8 +62,39 @@
     <symbol id="i-image" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></symbol>
     <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></symbol>
     <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9l6 6l6-6"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
     <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9a9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5m4-1v5l4 2"/></symbol>
     </svg>
+    <main class="auth-gate" id="auth-gate">
+      <div class="auth-card">
+        <div class="brand auth-brand"><span class="brand-mark" aria-hidden="true"><svg class="icon" aria-hidden="true"><use href="#i-d20"></use></svg></span><span class="brand-name">BanD&amp;D<span>.</span></span></div>
+        <p class="auth-loading" id="auth-loading" role="status">Conectando ao servidor...</p>
+        <div class="auth-offline" id="auth-offline" hidden>
+          <h1>Servidor indisponível</h1>
+          <p>O BanD&amp;D precisa do servidor para entrar na sua conta. Inicie-o com <code>npm start</code> e abra o endereço que ele mostrar.</p>
+          <button class="button button-outline" id="auth-retry" type="button">Tentar de novo</button>
+        </div>
+        <div id="account-guest" hidden>
+          <div class="dialog-kicker">SUA CONTA</div>
+          <h1 id="account-dialog-title">Entrar</h1>
+          <p class="auth-notice" id="auth-notice" hidden></p>
+          <div class="account-tabs" role="tablist">
+            <button type="button" role="tab" class="is-active" data-account-tab="login" aria-selected="true">Entrar</button>
+            <button type="button" role="tab" data-account-tab="register" aria-selected="false">Criar conta</button>
+          </div>
+          <form id="account-form" novalidate>
+            <label class="campaign-form-field" id="account-name-field" for="account-name" hidden>Nome<input id="account-name" name="name" maxlength="60" autocomplete="name" /></label>
+            <label class="campaign-form-field" for="account-email">E-mail<input id="account-email" name="email" type="email" maxlength="200" autocomplete="email" /></label>
+            <label class="campaign-form-field" for="account-password">Senha<input id="account-password" name="password" type="password" maxlength="200" autocomplete="current-password" /></label>
+            <p class="input-hint" id="account-password-hint" hidden>Use pelo menos 8 caracteres. A senha é guardada só como hash irreversível.</p>
+            <p class="form-error" id="account-error" role="alert"></p>
+            <div class="campaign-editor-actions"><span></span><button class="button button-primary" id="account-submit" type="submit">Entrar</button></div>
+          </form>
+          <p class="api-note">Com uma conta, campanhas, anotações, iniciativa e criaturas ficam no servidor e podem ser abertas em qualquer computador.</p>
+        </div>
+      </div>
+    </main>
     <div class="app-shell">
       <aside class="sidebar" aria-label="Navegação principal">
         <a class="brand" href="#dashboard" data-go="dashboard" aria-label="BanD&amp;D, início">
@@ -130,6 +164,7 @@
               </select>
             </label>
             <button class="icon-button theme-toggle" id="theme-toggle" type="button"><svg class="icon" aria-hidden="true"><use href="#i-sun"></use></svg></button>
+            <button class="account-button is-signed-in" id="account-button" type="button" hidden><svg class="icon" aria-hidden="true"><use href="#i-user"></use></svg><span id="account-button-label"></span><span class="sync-dot" id="sync-dot" hidden></span></button>
           </div>
         </header>
 
@@ -202,12 +237,15 @@
           <section class="view" id="view-campaigns" data-title="Campanhas" hidden>
             <div class="page-heading-row">
               <div><p class="eyebrow"><span class="eyebrow-line"></span> SEU UNIVERSO</p><h1>Campanhas</h1><p class="page-subtitle">Cada grande aventura começa com uma ideia.</p></div>
-              <button class="button button-primary" id="new-campaign" type="button"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg> Nova campanha</button>
+              <div class="heading-actions">
+                <button class="button button-outline" id="join-campaign" type="button" hidden><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg> Entrar com código</button>
+                <button class="button button-primary" id="new-campaign" type="button"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg> Nova campanha</button>
+              </div>
             </div>
               <div class="campaign-list" id="campaign-list">
                 <button class="new-campaign-card" id="new-campaign-card" type="button"><span aria-hidden="true"><svg class="icon"><use href="#i-plus"></use></svg></span><strong>Comece uma nova história</strong><small>Crie um espaço para sua próxima campanha.</small></button>
               </div>
-            <p class="api-note">As campanhas criadas nesta versão inicial ficam salvas neste navegador.</p>
+            <p class="api-note">As campanhas ficam salvas na sua conta. Use o botão de membros em cada campanha para convidar seus jogadores.</p>
           </section>
 
           <section class="view" id="view-spells" data-title="Magias" hidden>
@@ -384,6 +422,7 @@
               <button class="button button-outline" id="import-data" type="button"><svg class="icon" aria-hidden="true"><use href="#i-upload"></use></svg> Importar arquivo</button>
               <input id="import-data-file" type="file" accept="application/json,.json" hidden />
               <p class="input-hint" id="backup-status" role="status"></p>
+              <p class="api-note" id="backup-account-note" hidden>Você está na sua conta: a importação soma as campanhas e anotações do arquivo às da conta e substitui a iniciativa e as criaturas importadas.</p>
             </section>
           </section>
         </div>
@@ -424,6 +463,40 @@
         </label>
         <div class="campaign-editor-actions"><button class="campaign-delete" id="delete-editing-campaign" type="button" hidden>Excluir campanha</button><span></span><button class="button button-outline" id="cancel-campaign-edit" type="button">Cancelar</button><button class="button button-primary" type="submit">Salvar campanha</button></div>
       </form>
+    </dialog>
+    <dialog class="detail-dialog campaign-dialog account-dialog" id="account-dialog" aria-labelledby="account-user-name">
+      <button class="dialog-close icon-button campaign-dialog-close" id="account-dialog-close" type="button" aria-label="Fechar"><svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg></button>
+      <div class="dialog-kicker">SUA CONTA</div>
+      <div id="account-signed-in">
+        <h2 id="account-user-name"></h2>
+        <p class="account-email" id="account-user-email"></p>
+        <p class="account-sync" id="account-sync-status"></p>
+        <form class="join-form" id="join-form">
+          <label class="campaign-form-field" for="join-code">Entrar em uma campanha compartilhada<input id="join-code" name="code" maxlength="40" autocomplete="off" placeholder="Código do convite" /></label>
+          <button class="button button-outline" type="submit">Entrar na campanha</button>
+        </form>
+        <div class="campaign-editor-actions"><button class="campaign-delete" id="logout-button" type="button">Sair da conta</button><span></span><button class="button button-outline" id="account-export" type="button"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg> Exportar da conta</button></div>
+      </div>
+    </dialog>
+    <dialog class="detail-dialog campaign-dialog share-dialog" id="share-dialog" aria-labelledby="share-dialog-title">
+      <button class="dialog-close icon-button campaign-dialog-close" id="share-dialog-close" type="button" aria-label="Fechar"><svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg></button>
+      <div class="dialog-kicker">COMPARTILHAR</div>
+      <h2 id="share-dialog-title"></h2>
+      <p class="share-subtitle" id="share-dialog-subtitle"></p>
+      <ul class="member-list" id="member-list"></ul>
+      <div class="invite-box" id="invite-box" hidden>
+        <h3>Convidar jogadores</h3>
+        <p>Gere um código e passe para quem vai entrar. Cada código vale para uma pessoa por 7 dias.</p>
+        <div class="invite-row">
+          <select id="invite-role" aria-label="Permissão do convite">
+            <option value="viewer">Pode ver</option>
+            <option value="editor">Pode editar</option>
+          </select>
+          <button class="button button-primary" id="create-invite" type="button">Gerar código</button>
+        </div>
+        <div class="invite-code" id="invite-code" hidden><code id="invite-code-value"></code><button class="icon-button" id="copy-invite" type="button" aria-label="Copiar código"><svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg></button></div>
+      </div>
+      <div class="campaign-editor-actions"><button class="campaign-delete" id="leave-campaign" type="button" hidden>Sair desta campanha</button><span></span><button class="button button-outline" id="share-done" type="button">Fechar</button></div>
     </dialog>
     <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
   </body>

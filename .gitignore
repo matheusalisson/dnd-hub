@@ -1,2 +1,4 @@
 github.local.env
 .env
+data/
+node_modules/
