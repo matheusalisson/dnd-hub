@@ -25,6 +25,7 @@
     <script src="./assets/js/i18n.js" defer></script>
     <script src="./assets/js/spells-pt.js" defer></script>
     <script src="./assets/js/monsters-pt.js" defer></script>
+    <script src="./assets/js/monsters-extra.js" defer></script>
     <script src="./assets/js/app.js" defer></script>
   </head>
   <body>
@@ -246,7 +247,7 @@
             </div>
             <div class="catalog-toolbar">
               <label class="catalog-search"><svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg><input id="monster-search" type="search" aria-label="Buscar criatura em português ou inglês" placeholder="Buscar criatura em português ou inglês..." /></label>
-              <label class="filter-select"><span>Fonte</span><select id="monster-source"><option value="dnd5e">D&D 5e 2014 · SRD</option><option value="open5e">Open5e · fontes abertas</option><option value="custom">Minhas criaturas · importadas</option></select></label>
+              <label class="filter-select"><span>Fonte</span><select id="monster-source"><option value="all" selected>Todas as fontes</option><option value="dnd5e">D&D 5e 2014 · SRD</option><option value="open5e">Open5e · fontes abertas</option><option value="extra">Outros livros · embutidas</option><option value="custom">Minhas criaturas · importadas</option></select></label>
               <label class="filter-select" id="monster-document-filter" hidden><span>Publicação</span><select id="monster-document"><option value="">Todas as fontes abertas</option></select></label>
             </div>
             <div class="tool-row" id="custom-creature-tools" hidden>
@@ -256,7 +257,7 @@
               <input id="creature-import-file" type="file" accept="application/json,.json" hidden />
               <small class="input-hint">As criaturas ficam salvas só neste navegador e entram no backup. Use apenas fichas que você tem direito de usar.</small>
             </div>
-            <div class="catalog-caption"><span id="monster-count">Carregando criaturas...</span><span id="monster-source-label">Fonte: D&D 5e API · regras de 2014</span></div>
+            <div class="catalog-caption"><span id="monster-count">Carregando criaturas...</span><span id="monster-source-label">Todas as fontes · SRD, Open5e, outros livros e as suas</span></div>
             <div class="resource-grid" id="monster-list" aria-live="polite"></div>
             <div class="catalog-feedback" id="monster-feedback" role="status"></div>
             <button class="button button-outline load-more" id="monster-more" type="button" hidden>Carregar mais criaturas</button>

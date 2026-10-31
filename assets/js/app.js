@@ -12,7 +12,7 @@ const DEFAULT_CAMPAIGN = {
 const state = {
   spells: { catalog: null, results: [], visibleCount: PAGE_SIZE, query: "", level: "", requestId: 0 },
   tricks: { catalog: null, results: [], visibleCount: PAGE_SIZE, query: "", requestId: 0 },
-  monsters: { results: [], visibleCount: PAGE_SIZE, query: "", provider: "dnd5e", documentSlug: "", documents: null, nameIndex: null, next: null, requestId: 0, imageCache: new Map() },
+  monsters: { results: [], visibleCount: PAGE_SIZE, query: "", provider: "all", documentSlug: "", documents: null, nameIndex: null, next: null, requestId: 0, imageCache: new Map() },
   combatants: loadStored("cronica-combatants", []),
   initiative: { creatures: [], selectedMonster: null, requestId: 0 },
   campaigns: loadCampaigns(),
@@ -283,6 +283,7 @@ const monsterTranslations = {
   "yellow mold": ["mofo amarelo"],
   "zombie": ["zumbi"],
 };
+extraMonsters.forEach((monster) => { monsterTranslations[monster.name.toLowerCase()] = [monster.name_pt]; });
 
 const monsterTypeTranslations = {
   aberration: t("Aberração"),
@@ -1169,7 +1170,7 @@ function renderCreatureSuggestions(creatures) {
   listbox.innerHTML = creatures.map((creature, index) => `
     <button class="creature-suggestion" type="button" role="option" aria-selected="false" data-creature-index="${index}">
       <span><strong>${escapeHtml(getLocalizedMonsterName(creature.name))}</strong><small>${escapeHtml(creature.name)}</small></span>
-      <span class="suggestion-source">${escapeHtml({ open5e: creature.document__title || "Open5e", custom: t("Minhas criaturas") }[creature.provider] || "SRD 2014")}</span>
+      <span class="suggestion-source">${escapeHtml({ open5e: creature.document__title || "Open5e", extra: t("Outros livros"), custom: t("Minhas criaturas") }[creature.provider] || "SRD 2014")}</span>
     </button>`).join("");
   listbox.hidden = creatures.length === 0;
   document.querySelector("#combatant-name").setAttribute("aria-expanded", String(creatures.length > 0));
@@ -1209,11 +1210,11 @@ async function searchInitiativeCreatures(query) {
       ? open5eResult.value.results.map((creature) => ({ ...creature, provider: "open5e" }))
       : [];
     const normalizedQuery = normalizeSearchTerm(query);
-    const customCreatures = state.customCreatures.filter((creature) => (
+    const localCreatures = [...state.customCreatures, ...extraMonsters].filter((creature) => (
       normalizeSearchTerm(creature.name).includes(normalizedQuery)
       || normalizeSearchTerm(getLocalizedMonsterName(creature.name)).includes(normalizedQuery)
     ));
-    state.initiative.creatures = [...customCreatures, ...officialCreatures, ...open5eCreatures].slice(0, 12);
+    state.initiative.creatures = [...localCreatures, ...officialCreatures, ...open5eCreatures].slice(0, 12);
     renderCreatureSuggestions(state.initiative.creatures);
     status.textContent = state.initiative.creatures.length
       ? t("{count} sugestão(ões) encontradas no SRD 2014 e em fontes abertas.", { count: state.initiative.creatures.length })
@@ -1237,7 +1238,7 @@ async function selectInitiativeCreature(creature) {
   status.textContent = t("Carregando ficha de {name}...", { name: creature.name });
   renderCreatureSuggestions([]);
   try {
-    const detail = ["open5e", "custom"].includes(creature.provider)
+    const detail = ["open5e", "extra", "custom"].includes(creature.provider)
       ? creature
       : await requestApi(creature.url);
     if (requestId !== state.initiative.requestId) return;
@@ -1518,6 +1519,42 @@ function renderTricks() {
       </button>`).join("");
 }
 
+function filterLocalCreatures(creatures) {
+  const query = normalizeSearchTerm(state.monsters.query);
+  return creatures.filter((creature) => (
+    !query
+    || normalizeSearchTerm(creature.name).includes(query)
+    || normalizeSearchTerm(getLocalizedMonsterName(creature.name)).includes(query)
+  ));
+}
+
+async function getSrdMonsterMatches() {
+  if (!state.monsters.nameIndex) state.monsters.nameIndex = (await requestApi("/monsters")).results;
+  const query = normalizeSearchTerm(state.monsters.query);
+  const resolvedQuery = normalizeSearchTerm(getMonsterSearchName(state.monsters.query));
+  const matchingMonsters = query
+    ? state.monsters.nameIndex.filter((monster) => (
+      normalizeSearchTerm(monster.name).includes(query)
+      || normalizeSearchTerm(getLocalizedMonsterName(monster.name)).includes(query)
+      || normalizeSearchTerm(monster.name).includes(resolvedQuery)
+    ))
+    : state.monsters.nameIndex;
+  return matchingMonsters.map((monster) => ({ ...monster, provider: "dnd5e" }));
+}
+
+// Em "Todas", o Open5e deixa de fora a cópia dele do SRD, que já vem da D&D 5e API.
+async function getOpen5eMonsterPage(url) {
+  if (!url) {
+    const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
+    if (state.monsters.query) params.set("name__icontains", getMonsterSearchName(state.monsters.query));
+    if (state.monsters.provider === "all") params.set("document__slug__not_in", "wotc-srd");
+    else if (state.monsters.documentSlug) params.set("document__slug", state.monsters.documentSlug);
+    url = `${OPEN5E_BASE}/monsters/?${params}`;
+  }
+  const data = await requestExternalJson(url, "api.open5e.com");
+  return { ...data, results: data.results.map((monster) => ({ ...monster, provider: "open5e" })) };
+}
+
 async function loadMonsters({ append = false } = {}) {
   const requestId = ++state.monsters.requestId;
   const feedback = document.querySelector("#monster-feedback");
@@ -1529,54 +1566,53 @@ async function loadMonsters({ append = false } = {}) {
     count.textContent = t("Buscando...");
   }
   document.querySelector("#monster-source-label").textContent = {
+    all: t("Todas as fontes · SRD, Open5e, outros livros e as suas"),
     open5e: t("Open5e · conteúdo de fontes abertas"),
+    extra: t("Outros livros · criaturas embutidas no HUB"),
     custom: t("Minhas criaturas · salvas neste navegador"),
   }[state.monsters.provider] || t("D&D 5e API · regras de 2014");
   try {
-    let data;
-    if (state.monsters.provider === "open5e") {
-      let url = state.monsters.next;
-      if (!append || !url) {
-        const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
-        if (state.monsters.query) params.set("name__icontains", getMonsterSearchName(state.monsters.query));
-        if (state.monsters.documentSlug) params.set("document__slug", state.monsters.documentSlug);
-        url = `${OPEN5E_BASE}/monsters/?${params}`;
+    if (state.monsters.provider === "all") {
+      if (append) {
+        const page = await getOpen5eMonsterPage(state.monsters.next);
+        if (requestId !== state.monsters.requestId) return;
+        state.monsters.results = [...state.monsters.results, ...page.results];
+        state.monsters.next = page.next;
+      } else {
+        // Uma API fora do ar não esconde as outras fontes.
+        const [srd, open5e] = await Promise.allSettled([getSrdMonsterMatches(), getOpen5eMonsterPage()]);
+        if (requestId !== state.monsters.requestId) return;
+        if (srd.status === "rejected") console.error("Falha ao carregar criaturas da D&D 5e API.", srd.reason);
+        if (open5e.status === "rejected") console.error("Falha ao carregar criaturas do Open5e.", open5e.reason);
+        const local = filterLocalCreatures([...state.customCreatures, ...extraMonsters]);
+        const srdResults = srd.status === "fulfilled" ? srd.value : [];
+        const open5ePage = open5e.status === "fulfilled" ? open5e.value : { results: [], next: null, count: 0 };
+        state.monsters.results = [...local, ...srdResults, ...open5ePage.results];
+        state.monsters.next = open5ePage.next;
+        state.monsters.total = local.length + srdResults.length + open5ePage.count;
+        state.monsters.visibleCount = PAGE_SIZE;
+        if (srd.status === "rejected" || open5e.status === "rejected") {
+          showToast(t("Parte do bestiário não respondeu; mostrando as fontes disponíveis."));
+        }
       }
-      data = await requestExternalJson(url, "api.open5e.com");
+    } else if (state.monsters.provider === "open5e") {
+      const page = await getOpen5eMonsterPage(append ? state.monsters.next : null);
       if (requestId !== state.monsters.requestId) return;
-      const results = data.results.map((monster) => ({ ...monster, provider: "open5e" }));
-      state.monsters.results = append ? [...state.monsters.results, ...results] : results;
-      state.monsters.next = data.next;
-      state.monsters.total = data.count;
+      state.monsters.results = append ? [...state.monsters.results, ...page.results] : page.results;
+      state.monsters.next = page.next;
+      state.monsters.total = page.count;
       state.monsters.visibleCount = state.monsters.results.length;
-    } else if (state.monsters.provider === "custom") {
-      const query = normalizeSearchTerm(state.monsters.query);
-      state.monsters.results = state.customCreatures.filter((creature) => (
-        !query
-        || normalizeSearchTerm(creature.name).includes(query)
-        || normalizeSearchTerm(getLocalizedMonsterName(creature.name)).includes(query)
-      ));
+    } else if (["extra", "custom"].includes(state.monsters.provider)) {
+      state.monsters.results = filterLocalCreatures(state.monsters.provider === "extra" ? extraMonsters : state.customCreatures);
       state.monsters.next = null;
       state.monsters.total = state.monsters.results.length;
       state.monsters.visibleCount = PAGE_SIZE;
     } else {
-      if (!state.monsters.nameIndex) {
-        data = await requestApi("/monsters");
-        state.monsters.nameIndex = data.results;
-      }
+      const results = await getSrdMonsterMatches();
       if (requestId !== state.monsters.requestId) return;
-      const query = normalizeSearchTerm(state.monsters.query);
-      const resolvedQuery = normalizeSearchTerm(getMonsterSearchName(state.monsters.query));
-      const matchingMonsters = query
-        ? state.monsters.nameIndex.filter((monster) => (
-          normalizeSearchTerm(monster.name).includes(query)
-          || normalizeSearchTerm(getLocalizedMonsterName(monster.name)).includes(query)
-          || normalizeSearchTerm(monster.name).includes(resolvedQuery)
-        ))
-        : state.monsters.nameIndex;
-      state.monsters.results = matchingMonsters.map((monster) => ({ ...monster, provider: "dnd5e" }));
+      state.monsters.results = results;
       state.monsters.next = null;
-      state.monsters.total = state.monsters.results.length;
+      state.monsters.total = results.length;
       state.monsters.visibleCount = PAGE_SIZE;
     }
     renderMonsters();
@@ -1587,9 +1623,8 @@ async function loadMonsters({ append = false } = {}) {
         ? t("Nenhuma criatura importada ainda. Use “Importar criaturas (JSON)”.")
         : t("Nenhuma criatura encontrada. Tente outro nome ou publicação.")
     );
-    document.querySelector("#monster-more").hidden = state.monsters.provider === "open5e"
-      ? !state.monsters.next
-      : state.monsters.results.length <= state.monsters.visibleCount;
+    document.querySelector("#monster-more").hidden = !state.monsters.next
+      && state.monsters.results.length <= state.monsters.visibleCount;
   } catch (error) {
     if (requestId !== state.monsters.requestId) return;
     console.error(
@@ -1705,7 +1740,7 @@ async function showResourceDetails(category, index, resourceOverride = null) {
   body.textContent = t("Carregando detalhes...");
   dialog.showModal();
   try {
-    const detail = category === "monsters" && ["open5e", "custom"].includes(resource.provider)
+    const detail = category === "monsters" && ["open5e", "extra", "custom"].includes(resource.provider)
       ? resource
       : await requestApi(resource.url);
     let imageMarkup = "";
@@ -1734,13 +1769,14 @@ async function showResourceDetails(category, index, resourceOverride = null) {
         .map(([heading, entries]) => `<h3>${heading}</h3>${entries.map(renderMonsterEntry).join("")}`)
         .join("");
       const description = detail.desc ? renderSpellText(translateMonsterText(detail.desc).split("\n")) : "";
+      const notes = detail.notes ? renderSpellText(translateMonsterText(detail.notes).split("\n")) : "";
       const sourceUrl = getSafeExternalUrl(detail.document__url);
       const licenseUrl = getSafeExternalUrl(detail.document__license_url);
       const sourceLinks = [
         sourceUrl ? `<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">${t("Fonte")} ${icon("arrow-up-right")}</a>` : "",
         licenseUrl ? `<a href="${escapeHtml(licenseUrl)}" target="_blank" rel="noopener noreferrer">${t("Licença")} ${icon("arrow-up-right")}</a>` : "",
       ].filter(Boolean).join(" · ");
-      body.innerHTML = `${imageMarkup}${description}<p><strong>${t("Classe de Armadura")}:</strong> ${escapeHtml(localizeArmor(detail))} · <strong>${t("Pontos de Vida")}:</strong> ${escapeHtml(detail.hit_points ?? "—")}${detail.hit_dice ? ` (${escapeHtml(detail.hit_dice)})` : ""}</p><p><strong>${t("Deslocamento")}:</strong> ${escapeHtml(getLocalizedMovement(detail.speed) || "—")}</p><p><strong>${t("Atributos")}:</strong> ${escapeHtml(abilities)}</p>${properties}${actionGroups}${sourceLinks ? `<p>${sourceLinks}</p>` : ""}`;
+      body.innerHTML = `${imageMarkup}${description}<p><strong>${t("Classe de Armadura")}:</strong> ${escapeHtml(localizeArmor(detail))} · <strong>${t("Pontos de Vida")}:</strong> ${escapeHtml(detail.hit_points ?? "—")}${detail.hit_dice ? ` (${escapeHtml(detail.hit_dice)})` : ""}</p><p><strong>${t("Deslocamento")}:</strong> ${escapeHtml(getLocalizedMovement(detail.speed) || "—")}</p><p><strong>${t("Atributos")}:</strong> ${escapeHtml(abilities)}</p>${properties}${actionGroups}${notes}${sourceLinks ? `<p>${sourceLinks}</p>` : ""}`;
     }
     document.querySelector(".dialog-source").textContent = category === "monsters" && detail.document__title
       ? `${t("Fonte:")} ${detail.document__title}${detail.document__license ? ` · ${detail.document__license}` : ""}`
@@ -2360,7 +2396,7 @@ async function importCustomCreatures(file) {
     }
     const skipped = list.length - valid.length;
     showToast(`${t(valid.length === 1 ? "{count} criatura importada" : "{count} criaturas importadas", { count: valid.length })}${skipped ? t("; {count} ignorada(s) por dados inválidos", { count: skipped }) : ""}.`);
-    if (state.monsters.provider === "custom") loadMonsters();
+    if (["all", "custom"].includes(state.monsters.provider)) loadMonsters();
   } catch (error) {
     console.error("Falha ao importar criaturas.", error);
     showToast(t("Não foi possível ler o arquivo. Confira se é um JSON válido."));
@@ -2782,10 +2818,15 @@ function setupEvents() {
       return;
     }
     state.monsters.visibleCount += PAGE_SIZE;
+    // Em "Todas", depois das fontes locais e do SRD, cada clique busca mais uma página do Open5e.
+    if (state.monsters.visibleCount > state.monsters.results.length && state.monsters.next) {
+      loadMonsters({ append: true });
+      return;
+    }
     renderMonsters();
     loadVisibleMonsterImages(++state.monsters.requestId);
-    document.querySelector("#monster-count").textContent = formatCount(Math.min(state.monsters.visibleCount, state.monsters.results.length), state.monsters.results.length, t("criatura"), t("criaturas"));
-    document.querySelector("#monster-more").hidden = state.monsters.results.length <= state.monsters.visibleCount;
+    document.querySelector("#monster-count").textContent = formatCount(Math.min(state.monsters.visibleCount, state.monsters.total), state.monsters.total, t("criatura"), t("criaturas"));
+    document.querySelector("#monster-more").hidden = !state.monsters.next && state.monsters.results.length <= state.monsters.visibleCount;
   });
   document.querySelector("#spell-list").addEventListener("click", (event) => {
     const card = event.target.closest("[data-resource]");
@@ -2969,7 +3010,7 @@ function setupEvents() {
     if (!state.customCreatures.length || !window.confirm(t("Remover todas as criaturas importadas deste navegador?"))) return;
     state.customCreatures = [];
     saveStored("cronica-custom-creatures", state.customCreatures);
-    if (state.monsters.provider === "custom") loadMonsters();
+    if (["all", "custom"].includes(state.monsters.provider)) loadMonsters();
     showToast(t("Criaturas importadas removidas."));
   });
   document.querySelector("#roll-all-initiative").addEventListener("click", (event) => {
